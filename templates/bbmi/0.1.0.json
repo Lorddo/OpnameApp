@@ -1,0 +1,256 @@
+{
+  "id": "bbmi",
+  "version": "0.1.0",
+  "label": "BBMI",
+  "locale": "nl-NL",
+  "attributes": {
+    "room.locatieInPand": {
+      "answerScope": "room",
+      "questionKey": "locatieInPand",
+      "label": "Waar bevindt deze bergruimte zich in het pand?",
+      "answerType": "text",
+      "helpText": "Korte omschrijving van de plek, bijv. achter slaapkamer 2, links onderin, naast de meterkast."
+    },
+    "room.afgeslotenRuimte": {
+      "answerScope": "room",
+      "questionKey": "afgeslotenRuimte",
+      "label": "Is de ruimte volledig afsluitbaar?",
+      "answerType": "boolean",
+      "helpText": "Volledig afgesloten ruimte."
+    },
+    "room.geisoleerd": {
+      "answerScope": "room",
+      "questionKey": "geisoleerd",
+      "label": "Is de ruimte geïsoleerd?",
+      "answerType": "boolean",
+      "helpText": "De ruimte is geïsoleerd."
+    },
+    "room.klimaatregeling": {
+      "answerScope": "room",
+      "questionKey": "klimaatregeling",
+      "label": "Is er klimaatregeling aanwezig?",
+      "answerType": "boolean",
+      "helpText": "De ruimte is voorzien van binnenklimaatregeling."
+    },
+    "room.gedeeldeMuurHoofdgebouw": {
+      "answerScope": "room",
+      "questionKey": "gedeeldeMuurHoofdgebouw",
+      "label": "Heeft de ruimte een gedeelde muur met het hoofdgebouw?",
+      "answerType": "boolean",
+      "helpText": "Gedeelde muur met het hoofdgebouw."
+    },
+    "room.binnendoorBereikbaar": {
+      "answerScope": "room",
+      "questionKey": "binnendoorBereikbaar",
+      "label": "Is de ruimte binnendoor bereikbaar vanuit het hoofdgebouw?",
+      "answerType": "boolean",
+      "helpText": "Ja = binnendoor bereikbaar. Nee = alleen bereikbaar via de open lucht."
+    },
+    "room.plafondHoogteMin190": {
+      "answerScope": "room",
+      "questionKey": "plafondHoogteMin190",
+      "label": "Heeft de ruimte een plafondhoogte van minimaal 1.90 m?",
+      "answerType": "boolean",
+      "helpText": "Hoger dan 1.90 m. Officieel min. 2.0 m hoogte; sommige marktsegmenten (m.n. Amsterdam) hebben gedoogbeleid om alsnog als Wo te classificeren."
+    },
+    "room.balkenVervangbaarDoorMuren": {
+      "answerScope": "room",
+      "questionKey": "balkenVervangbaarDoorMuren",
+      "label": "Kunnen de balken constructief vervangen worden door muren?",
+      "answerType": "boolean",
+      "helpText": "Lager dan 1.90 m: alleen als het aantal balken zo gering is dat bij vervanging door muren bruikbare kamer(s) ontstaan (= Wo). Inspecteur moet expliciet vermelden dat balken vervangen kunnen worden door muren."
+    },
+    "room.plafondHoogteCategorie": {
+      "answerScope": "room",
+      "questionKey": "plafondHoogteCategorie",
+      "label": "Welke plafondhoogte heeft de erker?",
+      "answerType": "choice",
+      "options": [
+        { "value": "gte_1_90", "label": "≥ 1,90 m" },
+        { "value": "gt_1_50_lt_1_90", "label": "> 1,50 m en < 1,90 m" },
+        { "value": "lte_1_50", "label": "≤ 1,50 m" }
+      ],
+      "helpText": "Kies de categorie die bij de gemeten plafondhoogte past."
+    },
+    "room.toegangType": {
+      "answerScope": "room",
+      "questionKey": "toegangType",
+      "label": "Wat voor toegang heeft de ruimte?",
+      "answerType": "choice",
+      "options": [
+        { "value": "trap", "label": "Trap" },
+        { "value": "vlizo", "label": "Luik of vlizo-trap (ladder)" }
+      ],
+      "helpText": "Trap; luik of vlizo-trap (ladder)."
+    },
+    "room.oppervlak4m2Boven2m": {
+      "answerScope": "room",
+      "questionKey": "oppervlak4m2Boven2m",
+      "label": "Heeft de ruimte meer dan 4 m² aaneengesloten oppervlak hoger dan 2.0 m?",
+      "answerType": "boolean",
+      "helpText": "Het hoogste punt is boven de 2.0 m, maar het aaneengesloten oppervlak hoger dan 2.0 m is kleiner dan 4.0 m² → nee."
+    },
+    "room.daglichtMin05m2": {
+      "answerScope": "room",
+      "questionKey": "daglichtMin05m2",
+      "label": "Is er daglichttoetreding (glas) van meer dan 0.5 m²?",
+      "answerType": "boolean",
+      "helpText": "Daglichttoetreding: glasoppervlakte."
+    },
+    "room.toegankelijkVoorAuto": {
+      "answerScope": "room",
+      "questionKey": "toegankelijkVoorAuto",
+      "label": "Is de ruimte toegankelijk voor een auto?",
+      "answerType": "boolean",
+      "helpText": "Toegankelijk/geschikt voor een auto."
+    },
+    "room.verbondenHoofdgebouw": {
+      "answerScope": "room",
+      "questionKey": "verbondenHoofdgebouw",
+      "label": "Is de ruimte verbonden aan het hoofdgebouw?",
+      "answerType": "boolean",
+      "helpText": "Of minder dan 10 cm afstand van het hoofdgebouw."
+    },
+    "room.afsluitbaarComplex": {
+      "answerScope": "room",
+      "questionKey": "afsluitbaarComplex",
+      "label": "Bevindt de ruimte zich in een volledig afsluitbaar complex?",
+      "answerType": "boolean",
+      "helpText": "Bevindt zich in een volledig van de buitenwereld af te sluiten complex."
+    }
+  },
+  "roomTypes": [
+    {
+      "id": "bergruimte",
+      "label": "Bergruimte",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.locatieInPand",
+          "sortOrder": 1,
+          "photoRequired": false
+        }
+      ]
+    },
+    {
+      "id": "serre",
+      "label": "Serre",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.afgeslotenRuimte", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "room.geisoleerd", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "room.klimaatregeling", "sortOrder": 3, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "externeBergruimte",
+      "label": "Externe bergruimte",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.afgeslotenRuimte", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "room.gedeeldeMuurHoofdgebouw", "sortOrder": 2, "photoRequired": false },
+        {
+          "attributeKey": "room.binnendoorBereikbaar",
+          "sortOrder": 3,
+          "photoRequired": false,
+          "helpTextOverride": "Ja = binnendoor bereikbaar. Nee = alleen bereikbaar via de open lucht. Voorbeelden OI of EB: zie PDF Meetinstructies gebruiksoppervlakte woningen."
+        }
+      ]
+    },
+    {
+      "id": "souterrain",
+      "label": "Souterrain",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.plafondHoogteMin190",
+          "sortOrder": 1,
+          "photoRequired": false,
+          "helpTextOverride": "Hoger dan 1.90 m. Officieel min. 2.0 m hoogte. Bepaalde marktsegmenten (m.n. Amsterdam) hebben gedoogbeleid om alsnog als Wo te classificeren."
+        }
+      ]
+    },
+    {
+      "id": "ruimteMetBalken",
+      "label": "Ruimte met balken",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.plafondHoogteMin190", "sortOrder": 1, "photoRequired": false },
+        {
+          "attributeKey": "room.balkenVervangbaarDoorMuren",
+          "sortOrder": 2,
+          "photoRequired": true,
+          "showWhen": "room.this.plafondHoogteMin190 = false"
+        }
+      ]
+    },
+    {
+      "id": "erker",
+      "label": "Erker",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.plafondHoogteCategorie", "sortOrder": 1, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "zwembad",
+      "label": "Zwembad",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.afgeslotenRuimte", "sortOrder": 1, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "zolder",
+      "label": "Zolder",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.toegangType", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "room.oppervlak4m2Boven2m", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "room.daglichtMin05m2", "sortOrder": 3, "photoRequired": false },
+        { "attributeKey": "room.geisoleerd", "sortOrder": 4, "photoRequired": false },
+        { "attributeKey": "room.klimaatregeling", "sortOrder": 5, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "omgebouwdeBergruimte",
+      "label": "Omgebouwde bergruimte",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.toegankelijkVoorAuto", "sortOrder": 1, "photoRequired": true },
+        { "attributeKey": "room.geisoleerd", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "room.klimaatregeling", "sortOrder": 3, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "carport",
+      "label": "Carport",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.verbondenHoofdgebouw", "sortOrder": 1, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "parkeerplaats",
+      "label": "Parkeerplaats",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.afsluitbaarComplex", "sortOrder": 1, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "meterkast",
+      "label": "Meterkast",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.binnendoorBereikbaar",
+          "sortOrder": 1,
+          "photoRequired": false,
+          "helpTextOverride": "Kan de meterkast vanuit het hoofdgebouw bediend worden."
+        },
+        { "attributeKey": "room.gedeeldeMuurHoofdgebouw", "sortOrder": 2, "photoRequired": false }
+      ]
+    }
+  ]
+}
