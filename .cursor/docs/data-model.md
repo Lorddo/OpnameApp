@@ -1,6 +1,6 @@
 # Data model
 
-**Status:** productvoorstel / offertefase  
+**Status:** in uitvoering (fase 1 schema)  
 **Laatst bijgewerkt:** 2026-08-12
 
 ---
@@ -19,21 +19,20 @@ Bij wijzigingen aan het model: eerst dit document **én** de diagrammen bijwerke
 ## Hiërarchie (conceptueel)
 
 ```text
-Organization (company; data-eigenaar)
- └─ Property (vastgoedobject; fysieke identiteit kan centraal/deelbaar zijn)
-     ├─ Floors
-     ├─ Rooms
-     ├─ Assets
-     ├─ Photos          (bewijs; met eigenaar + visibility)
-     ├─ Observations    (claims met tijd/bron/eigenaar/visibility)
-     └─ Facts           (geconsolideerd uit observations die de org mag zien)
-
-Inspection / Project (opname-instantie; heeft eigenaar)
- ├─ templateVersion (vastgezet bij start)
- ├─ gekoppelde Property
- ├─ owner_org_id
- └─ stuurt welke attributes/photos verplicht zijn
+Tenant
+ └─ Organization (org_type: inspection | client | platform)
+     ├─ Org members (inspector | admin) → Profile
+     ├─ Properties (home_org_id = opdrachtgever; created_by_org_id)
+     │    ├─ Property assignments (toegang voor inspection-orgs)
+     │    ├─ Floors → Rooms
+     │    ├─ Assets
+     │    ├─ Photos
+     │    └─ Observations → Facts (view)
+     └─ Inspections (owner_org_id + client_org_id)
+          └─ inspection_template_pins (meerdere templates per opname)
 ```
+
+Zie [ADR-015](./decisions/ADR-015-combined-inspection.md), [ADR-016](./decisions/ADR-016-client-org-assignment.md), [ADR-014](./decisions/ADR-014-facts-as-view.md).
 
 **Scheiding fysiek vs. inspectieresultaat:**
 
@@ -64,7 +63,7 @@ Stabiele objectidentiteit voor **elk type vastgoed**:
 - Object-/gebruikstype (woning, BOG, …) — model is generiek
 - Offline: lokaal UUID; adresvelden volstaan voor MVP
 - **BAG-lookup / dedupe in onze PWA: buiten scope** — gebeurt in het klantdashboard; optioneel later een door hen aangeleverde BAG-id opslaan
-- Doel: stabiele objecten binnen een org; cross-org delen later via expliciete shares
+- Toegang: home-org, creating org, of actieve `property_assignments`-rij
 
 **Pandbrede informatie** (geldt voor het gehele object) leeft op Property-niveau als attributes/facts — bijvoorbeeld gevels/gevelkenmerken, dak, algemene isolatie, bouwaard. Geen aparte `Facade`-entiteit nodig tenzij later blijkt dat gevels als herhaalbare subjects moeten bestaan; default = property-scope attributes.
 
@@ -119,36 +118,38 @@ Volledige kolommen + `showWhen`-grammar: [template-config.md](./template-config.
 
 ## Observations vs Facts
 
+Observations zijn claims met tijd, bron, eigenaar en visibility. Ze worden nooit hard verwijderd.
+
+**Facts** zijn een read-only view: per `(property, subject, attribute_key, owner_org_id)` de laatste observation (LWW). Zie [ADR-014](./decisions/ADR-014-facts-as-view.md).
+
+---
+
+## Inspections + template pins
+
+Eén inspection = één veldopname. Aangevinkte inspectietypes (BBMI, WWS, …) staan in `inspection_template_pins` met gepinde `template_key` + `template_version`. Compleetheid wordt per pin berekend over gedeelde observations. Zie [ADR-015](./decisions/ADR-015-combined-inspection.md).
+
+---
+
+## Auth / toegang
+
+- Mensen: Supabase Auth + JWT; org/rol in `app_metadata`.
+- Dashboard (machine): gehashte `api_keys` scoped op org. Zie [ADR-016](./decisions/ADR-016-client-org-assignment.md).
+
 Observations worden **niet verwijderd** als modelconcept. Ze zijn claims, geen eeuwige feiten:
 
 - waarde
 - `observedAt`
 - `observerId`
 - `owner_org_id` (**eigenaarschaplaag** — company/org die de claim bezit)
-- `visibility` (`private` | `shared` | `public_to_client`)
+- `visibility` (`private` | `shared` | `public_to_client`) — MVP gebruikt `private`
 - `sourceInspectionId` (optioneel)
 - bewijs (foto’s)
-- eventueel betrouwbaarheid / reviewstatus
-
-Conceptueel:
-
-```text
-Observation
- ├─ id
- ├─ property_id / subject_id
- ├─ attribute_key (of question_id in template-context)
- ├─ value
- ├─ owner_org_id
- └─ visibility
-```
 
 | visibility | Betekenis |
 |---|---|
 | `private` | Alleen zichtbaar voor de eigenaar-org |
-| `shared` | Zichtbaar voor orgs met expliciete share/grant |
-| `public_to_client` | Zichtbaar voor de opdrachtgever/client-org van deze opname |
-
-**Facts** zijn de geconsolideerde waarheid op de Property **binnen de zichtbaarheid van de raadplegende org**. Consolidatie gebruikt alleen observations die die org mag zien. Bij company-wissel: bestaande observations van de vorige company worden **niet automatisch** meegenomen in facts of UI van de nieuwe company.
+| `shared` | Zichtbaar voor orgs met expliciete share/grant (later) |
+| `public_to_client` | Modelhook; opdrachtgevers lezen via dashboard-API |
 
 Gedetailleerde regels: [business-rules.md](./business-rules.md).
 
@@ -174,8 +175,8 @@ Foto’s zijn bewijsvoering en volgen hetzelfde eigenaarschap als de observation
 
 Templates beschrijven **welke data nodig is**, ze bevatten geen opname-data.
 
-Bij start van een opname wordt de **templateVersion vastgezet (pinnen)**.  
-Offline openstaande opnames blijven op die versie.
+Bij start van een opname worden aangevinkte **templateVersions vastgezet** in `inspection_template_pins`.  
+Offline openstaande opnames blijven op die versies.
 
 Config-details (roomTypes, `questionKey`, `answerScope`, `showWhen`, verplichtheid): [template-config.md](./template-config.md).
 
@@ -187,7 +188,7 @@ Config-details (roomTypes, `questionKey`, `answerScope`, `showWhen`, verplichthe
 - Lokale unieke identifier (UUID) bij creatie
 - Sync: nieuw → create op server; bestaand → update
 - Nooit afhankelijk van internet om een opname te starten (na fase 2)
-- Elke Inspection heeft `owner_org_id` (de company die de opname uitvoert / bezit)
+- Elke Inspection heeft `owner_org_id` (uitvoerend) en optioneel `client_org_id` (opdrachtgever)
 - Antwoorden landen als Observations onder die eigenaar; niet als stille overschrijving van andermans claims
 
 ---
@@ -196,23 +197,19 @@ Config-details (roomTypes, `questionKey`, `answerScope`, `showWhen`, verplichthe
 
 Iedere organisatie heeft eigen gebruikers, projecten en (standaard) eigen inspectiedata.
 
-**Property** mag centraal / herkenbaar blijven (fysieke identiteit, BAG, structuur).  
+**Property** mag centraal / herkenbaar blijven (fysieke identiteit, structuur).  
 **Observations, foto’s en rapportdata** hebben een eigenaar en zijn default privé.
 
-Objecten kunnen **deelbaar** zijn tussen organisaties (bijv. makelaar schakelt inspecteur in) — maar delen van *inspectieresultaten* is expliciet via visibility/shares.
+Objecttoegang tussen opdrachtgever en uitvoerder loopt via `property_assignments` (MVP). Delen van inspectieresultaten blijft visibility/share-hooks zonder share-UI in MVP.
 
 Conceptueel:
 
-- Ownership / home-org van een Property (beheer/context)
+- `home_org_id` / `created_by_org_id` op Property
 - `owner_org_id` op Inspection, Observation, Photo
 - `visibility`: `private` | `shared` | `public_to_client`
-- Shares / grants met rol of scope waar nodig
-- Data-scheiding is default; delen is expliciet
 - **Company-wissel:** geen automatische overname van bestaande observations/facts/foto’s
 
-UI mag met één org starten; **datamodel bevat `org_id`, `owner_org_id` en visibility/share-hooks vanaf dag 1**.
-
-Zie [ADR-003-multi-tenant.md](./decisions/ADR-003-multi-tenant.md).
+Zie [ADR-003-multi-tenant.md](./decisions/ADR-003-multi-tenant.md) en [ADR-016](./decisions/ADR-016-client-org-assignment.md).
 
 ---
 
@@ -220,7 +217,7 @@ Zie [ADR-003-multi-tenant.md](./decisions/ADR-003-multi-tenant.md).
 
 De klant denkt in een “dossier”: één bundel gegevens + bewijs per object.
 
-In onze architectuur is een **dossier geen aparte bron van waarheid**, maar een **view/export** over Property + Facts/Observations + Photos die de raadplegende org mag zien (compleetheid t.o.v. een template, ontbrekende velden, etc.).
+In onze architectuur is een **dossier geen aparte bron van waarheid**, maar een **view/export** over Property + Facts/Observations + Photos die de raadplegende org mag zien (compleetheid per gepind template).
 
 Rapportgeneratie zelf hoort bij het **klantdashboard** (buiten scope); wij leveren de data via API/export zodat zij rapporten kunnen maken.
 

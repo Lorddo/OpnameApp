@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "OpnameApp",
+    "tagline": "Property inspections in the field"
+  },
+  "nav": {
+    "projects": "Projects",
+    "settings": "Settings"
+  },
+  "home": {
+    "title": "Welcome",
+    "body": "Scaffold environment for the field PWA. Capture flow follows in phase 1.",
+    "health": "API status",
+    "healthOk": "Reachable",
+    "healthFail": "Unreachable",
+    "checking": "Checking…"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "themePranimate": "Pranimate",
+    "themeSlate": "Slate (demo white-label)"
+  },
+  "common": {
+    "nl": "Nederlands",
+    "en": "English"
+  }
+}

@@ -1,20 +1,26 @@
-# Cursor local/config — keep docs in sync, ignore the rest
-.cursor/*
-!.cursor/docs/
-!.cursor/docs/**
-
 # Dependencies / build
 node_modules/
 dist/
 build/
-.next/
-out/
+.wrangler/
 coverage/
+.vite/
+*.tsbuildinfo
 
 # Env & secrets
 .env
 .env.*
 !.env.example
+apps/api/.dev.vars
+!**/.dev.vars.example
+
+# Legacy path (pre-monorepo)
+workers/.dev.vars
+
+
+# Supabase local
+supabase/.branches
+supabase/.temp
 
 # OS / editor
 .DS_Store
@@ -22,3 +28,10 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Cursor local/config — keep docs in sync, ignore the rest
+.cursor/*
+!.cursor/docs/
+!.cursor/docs/**
+!.cursor/plans/
+!.cursor/plans/**

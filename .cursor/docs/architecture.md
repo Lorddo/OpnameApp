@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** productvoorstel / offertefase  
+**Status:** in uitvoering (fase 0 skelet live)  
 **Laatst bijgewerkt:** 2026-08-12
 
 ---
@@ -72,17 +72,33 @@ Focus: schaalbare structuur zonder dag-1-overkill.
 
 ---
 
+## Repository-layout (monorepo)
+
+```text
+apps/
+  pwa/         Vue 3 + Vite + vite-plugin-pwa + vue-i18n (NL/EN)
+  api/         Cloudflare Worker (Hono) — same-origin via PWA service binding
+packages/
+  core/        domeintypes, template-schema (Zod), later showWhen/completeness
+templates/     gepinde inspectietemplates (JSON)
+supabase/      config.toml, schemas/ (declaratief), migrations/, tests/
+.cursor/docs/  living docs + ADR's
+```
+
+Zie [ADR-012](./decisions/ADR-012-monorepo-packages-core.md) en [ADR-013](./decisions/ADR-013-i18n-nl-en.md).
+
 ## Technische stack (akkoord)
 
 | Laag | Keuze | Toelichting |
 |---|---|---|
 | Frontend | Vue 3 + TypeScript + PWA | Cross-platform veldapp (productvoorstel i.p.v. pure native iOS) |
 | Offline opslag | IndexedDB via Dexie | Observations, queue, foto’s/meta |
-| Backend / API | Cloudflare Workers | Dunne edge API, sync endpoints |
+| Backend / API | Cloudflare Workers (Hono) | Dunne edge API; PWA-worker proxyt `/api/*` |
 | Database | PostgreSQL (Supabase) | Bron van waarheid; RLS voor tenancy |
 | Bestanden | Cloudflare R2 (MVP) | Blobs; metadata in Postgres (`storageProvider` + `storageKey`) |
 | Auth | **Supabase Auth** + JWT-validatie in Cloudflare Workers | Eigen login; Workers valideren token |
 | Sync | Queue-based | Lokaal eerst, daarna API |
+| i18n | vue-i18n NL/EN | Offerte-eis; zie ADR-013 |
 
 ### Stack-regels
 

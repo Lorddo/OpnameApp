@@ -1,0 +1,19 @@
+# =============================================================================
+# Cloudflare Workers config — API
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+# =============================================================================
+
+name = "opnameapp-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Dashboard → Workers & Pages → Account ID
+account_id = "c4bca857ae3a03d942fa638b2d82f03f"
+
+workers_dev = true
+
+# R2 binding — code uses env.PHOTOS_BUCKET
+[[r2_buckets]]
+binding = "PHOTOS_BUCKET"
+bucket_name = "opnameapp"
+preview_bucket_name = "opnameapp"

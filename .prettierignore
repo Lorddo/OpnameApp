@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+dist
+coverage
+node_modules
+.wrangler
+.dev.vars
+.env
+.env.*
+!.env.example
+supabase/.temp
+*.min.js

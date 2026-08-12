@@ -1,173 +1,190 @@
 # Domein ER-diagram (Detailed)
 
 Living diagram bij [data-model.md](../data-model.md).  
-**Laatst bijgewerkt:** 2026-08-10
+**Laatst bijgewerkt:** 2026-08-12
 
-## Belangrijke correcties t.o.v. eerdere schets
+## Belangrijke keuzes
 
-| Was | Wordt | Waarom |
+| Onderwerp | Keuze | ADR |
 |---|---|---|
-| `ANSWER` | `OBSERVATION` | Claims met tijd, bron, eigenaar; niet alleen “antwoord op vraag” |
-| `QUESTION` | `ATTRIBUTE` | Catalogus van gestructureerde attributen; templates selecteren subsets |
-| Alleen Inspection → Answer | + `owner_org_id` + `visibility` | Eigenaarschaplaag; geen stille data-overname bij company-wissel |
-| Foto alleen aan answer | Photo volgt observation + eigenaar | Bronbestanden blijven van klant/opnemende partij |
-| Ontbrekende Facts | `FACT` per zichtbare org-scope | Geconsolideerde waarheid alleen uit observations die de org mag zien |
-
-## Eigenaarschap & visibility
-
-- **Juridisch:** inmeter / inspecteur / opdrachtgever blijft eigenaar van brondata — niet de softwareleverancier.
-- **Property** (fysiek: ruimtes, installaties, pandkenmerken) mag centraal/herkenbaar blijven.
-- **Inspection, Observation, Photo** hebben `owner_org_id` en zijn niet automatisch beschikbaar voor andere organisaties.
-- Bij **company-wissel**: bestaande observations/foto’s/facts van de vorige org worden **niet automatisch** opgenomen.
+| Gecombineerde opname | `inspection_template_pins` i.p.v. één template per inspection | [ADR-015](../decisions/ADR-015-combined-inspection.md) |
+| Opdrachtgever | `organizations.org_type` + `property_assignments` | [ADR-016](../decisions/ADR-016-client-org-assignment.md) |
+| Facts | View `security_invoker`, LWW binnen `owner_org_id` | [ADR-014](../decisions/ADR-014-facts-as-view.md) |
+| BAG | Nullable `bag_id`, geen lookup in onze app | — |
 
 `visibility` op Observation / Photo:
 
-| Waarde | Betekenis |
-|---|---|
-| `private` | Alleen eigenaar-org |
-| `shared` | Orgs met expliciete share/grant |
-| `public_to_client` | Opdrachtgever/client-org van deze opname |
+| Waarde | Betekenis | MVP |
+|---|---|---|
+| `private` | Alleen eigenaar-org | In gebruik |
+| `shared` | Orgs met expliciete share/grant | Hook, geen UI |
+| `public_to_client` | Opdrachtgever van de opname | Hook, geen UI |
 
 ```mermaid
 erDiagram
 
     TENANT ||--o{ ORGANIZATION : contains
-    ORGANIZATION ||--o{ USER : employs
-    ORGANIZATION ||--o{ PROPERTY : manages
+    ORGANIZATION ||--o{ ORG_MEMBER : has
+    PROFILE ||--o{ ORG_MEMBER : membership
+    ORGANIZATION ||--o{ PROPERTY : home_or_creates
+    ORGANIZATION ||--o{ PROPERTY_ASSIGNMENT : assigned
+    PROPERTY ||--o{ PROPERTY_ASSIGNMENT : grants
     ORGANIZATION ||--o{ INSPECTION : owns
     ORGANIZATION ||--o{ OBSERVATION : owns
     ORGANIZATION ||--o{ PHOTO : owns
+    ORGANIZATION ||--o{ API_KEY : issues
 
     PROPERTY ||--o{ FLOOR : contains
     FLOOR ||--o{ ROOM : contains
-
     PROPERTY ||--o{ ASSET : has
     PROPERTY ||--o{ INSPECTION : receives
     PROPERTY ||--o{ OBSERVATION : has_claims
-    PROPERTY ||--o{ FACT : consolidates
 
-    ATTRIBUTE ||--o{ TEMPLATE_ATTRIBUTE : used_in
-    INSPECTION_TEMPLATE ||--o{ TEMPLATE_ATTRIBUTE : requires
-
+    INSPECTION_TEMPLATE ||--o{ INSPECTION_TEMPLATE_PIN : pinned_as
+    INSPECTION ||--o{ INSPECTION_TEMPLATE_PIN : pins
     INSPECTION ||--o{ OBSERVATION : records
-    INSPECTION }o--|| INSPECTION_TEMPLATE : uses_pinned
-
-    ROOM ||--o{ OBSERVATION : relates_to
-    ASSET ||--o{ OBSERVATION : relates_to
     ATTRIBUTE ||--o{ OBSERVATION : answers
-    ATTRIBUTE ||--o{ FACT : current_value_of
-
     OBSERVATION ||--o{ PHOTO : evidence
 
     TENANT {
         uuid id
-        string name
+        text name
     }
 
     ORGANIZATION {
         uuid id
         uuid tenant_id
-        string name
+        text name
+        org_type org_type
     }
 
-    USER {
+    PROFILE {
+        uuid id
+        text display_name
+        text locale
+    }
+
+    ORG_MEMBER {
         uuid id
         uuid org_id
-        string role
+        uuid user_id
+        org_role role
     }
 
     PROPERTY {
         uuid id
         uuid home_org_id
-        string address
-        string postcode
-        string house_number
-        string property_type
-        string bag_id
+        uuid created_by_org_id
+        text postcode
+        text house_number
+        text house_number_addition
+        text city
+        text property_type
+        int build_year
+        text bag_id
+    }
+
+    PROPERTY_ASSIGNMENT {
+        uuid id
+        uuid property_id
+        uuid org_id
+        property_assignment_role role
+        timestamptz active_from
+        timestamptz active_to
     }
 
     FLOOR {
         uuid id
         uuid property_id
-        string floor_type
+        text label
+        int sort_order
     }
 
     ROOM {
         uuid id
         uuid floor_id
-        string room_type
-        string name
+        uuid property_id
+        text room_type
+        text label
     }
 
     ASSET {
         uuid id
         uuid property_id
-        string asset_type
+        text asset_type
+        text label
+    }
+
+    ATTRIBUTE {
+        text attribute_key
+        answer_scope answer_scope
+        text question_key
+        text label
+        answer_type answer_type
+        jsonb options
     }
 
     INSPECTION_TEMPLATE {
         uuid id
-        string name
-        string version
-    }
-
-    ATTRIBUTE {
-        uuid id
-        string attribute_key
-        string label
-        string answer_type
-        string scope
-    }
-
-    TEMPLATE_ATTRIBUTE {
-        uuid template_id
-        uuid attribute_id
-        boolean required
-        boolean required_photo
+        text template_key
+        text version
+        text label
+        text locale
+        jsonb config
+        timestamptz published_at
     }
 
     INSPECTION {
         uuid id
         uuid property_id
-        uuid template_id
-        uuid template_version_pinned
-        uuid inspector_id
         uuid owner_org_id
-        string status
+        uuid client_org_id
+        uuid inspector_id
+        uuid assigned_user_id
+        inspection_status status
+    }
+
+    INSPECTION_TEMPLATE_PIN {
+        uuid id
+        uuid inspection_id
+        text template_key
+        text template_version
     }
 
     OBSERVATION {
         uuid id
         uuid property_id
         uuid inspection_id
-        uuid attribute_id
-        uuid room_id
-        uuid asset_id
-        string value
-        datetime observed_at
-        uuid observer_id
+        text attribute_key
+        subject_type subject_type
+        uuid subject_id
+        jsonb value
         uuid owner_org_id
-        string visibility
-    }
-
-    FACT {
-        uuid id
-        uuid property_id
-        uuid attribute_id
-        uuid room_id
-        uuid asset_id
-        string value
-        uuid source_observation_id
-        uuid visible_to_org_id
+        visibility visibility
+        text device_id
+        timestamptz updated_at
     }
 
     PHOTO {
         uuid id
-        uuid observation_id
         uuid property_id
+        uuid observation_id
         uuid owner_org_id
-        string visibility
-        string storage_url
+        visibility visibility
+        text storage_provider
+        text storage_key
+        text checksum
         uuid source_inspection_id
     }
+
+    API_KEY {
+        uuid id
+        uuid org_id
+        text name
+        text key_prefix
+        text key_hash
+        timestamptz revoked_at
+    }
 ```
+
+**Facts** is geen tabel: view over `observations` (LWW per property/subject/attribute/`owner_org_id`).

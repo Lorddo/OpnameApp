@@ -1,0 +1,16 @@
+# =============================================================================
+# Cloudflare Workers config — API (example)
+# Kopieer naar apps/api/wrangler.toml en vul account_id + bucket in.
+# =============================================================================
+
+name = "opnameapp-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "PHOTOS_BUCKET"
+bucket_name = "opnameapp"
+preview_bucket_name = "opnameapp"

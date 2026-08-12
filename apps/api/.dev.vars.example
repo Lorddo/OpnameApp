@@ -1,0 +1,15 @@
+# =============================================================================
+# Cloudflare Workers secrets (lokaal)
+# Kopieer naar apps/api/.dev.vars — Wrangler laadt dit automatisch bij `wrangler dev`.
+# Productie: `wrangler secret put <NAME>` (niet in git).
+# =============================================================================
+
+# Supabase
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+# Prefer JWKS validation in later phases; secret kept for local/dev fallback
+SUPABASE_JWT_SECRET=
+
+# Optional: CORS origin for local Vite (production is same-origin via PWA worker)
+CORS_ORIGIN=http://127.0.0.1:5173

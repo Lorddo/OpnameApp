@@ -15,6 +15,11 @@ Architecture Decision Records voor het vastgoed-opnameplatform.
 | [ADR-009-template-version-pinning.md](./ADR-009-template-version-pinning.md) | TemplateVersion pinnen | Akkoord |
 | [ADR-010-photos-as-evidence.md](./ADR-010-photos-as-evidence.md) | Foto’s als bewijs op subjects | Akkoord |
 | [ADR-011-phased-delivery.md](./ADR-011-phased-delivery.md) | Oplevering in 4 fasen | Akkoord |
+| [ADR-012-monorepo-packages-core.md](./ADR-012-monorepo-packages-core.md) | Monorepo + packages/core | Akkoord |
+| [ADR-013-i18n-nl-en.md](./ADR-013-i18n-nl-en.md) | i18n NL/EN vanaf fase 0 | Akkoord |
+| [ADR-014-facts-as-view.md](./ADR-014-facts-as-view.md) | Facts als security_invoker view | Akkoord |
+| [ADR-015-combined-inspection.md](./ADR-015-combined-inspection.md) | Gecombineerde opname + template-pins | Akkoord |
+| [ADR-016-client-org-assignment.md](./ADR-016-client-org-assignment.md) | Opdrachtgever + toewijzing + API-keys | Akkoord |
 
 Bij nieuwe architectuurkeuzes: nieuw ADR-bestand toevoegen (`ADR-00N-…md`).
 
@@ -58,6 +63,13 @@ Bij nieuwe architectuurkeuzes: nieuw ADR-bestand toevoegen (`ADR-00N-…md`).
 | Dashboard | Buiten scope; wij leveren API | Akkoord |
 | Rapporten | Buiten scope; klant-dashboard | Akkoord |
 | Oplevering | 4 fasen: Engine+PWA → Offline+Sync → BBMI → WWS | Akkoord |
+| Monorepo | pnpm workspaces; engine in `packages/core` gedeeld door PWA+API | Akkoord |
+| i18n | NL + EN via vue-i18n vanaf fase 0 | Akkoord |
+| Hosting PWA | Workers static assets; `/api/*` via service binding (same-origin) | Akkoord |
+| Facts | View met `security_invoker`; LWW binnen `owner_org_id` | Akkoord |
+| Gecombineerde opname | Meerdere `inspection_template_pins` per inspection | Akkoord |
+| Opdrachtgever | `org_type` client/inspection/platform + `property_assignments` | Akkoord |
+| Dashboard-access | API-keys (gehasht, org-scoped) naast JWT | Akkoord |
 | EPA/NEN2580/WO/BOG/brand | Meerwerk | Akkoord |
 | Scan/LiDAR-app | Later frontend; niet op wachten | Akkoord |
 | Partner CSV/templates | Apart project; out of scope hier | Akkoord |

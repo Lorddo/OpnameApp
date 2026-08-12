@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "OpnameApp",
+    "tagline": "Vastgoed opnemen in het veld"
+  },
+  "nav": {
+    "projects": "Projecten",
+    "settings": "Instellingen"
+  },
+  "home": {
+    "title": "Welkom",
+    "body": "Skeletomgeving voor de veld-PWA. Opnameflow volgt in fase 1.",
+    "health": "API-status",
+    "healthOk": "Bereikbaar",
+    "healthFail": "Niet bereikbaar",
+    "checking": "Controleren…"
+  },
+  "settings": {
+    "title": "Instellingen",
+    "language": "Taal",
+    "theme": "Thema",
+    "themePranimate": "Pranimate",
+    "themeSlate": "Slate (demo white-label)"
+  },
+  "common": {
+    "nl": "Nederlands",
+    "en": "English"
+  }
+}

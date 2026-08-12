@@ -1,0 +1,41 @@
+{
+  "name": "@opnameapp/pwa",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -p tsconfig.app.json --noEmit && vite build",
+    "preview": "vite preview",
+    "deploy": "pnpm build && wrangler deploy",
+    "typecheck": "vue-tsc -p tsconfig.app.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opnameapp/core": "workspace:*",
+    "@vueuse/core": "^13.6.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-vue-next": "^0.539.0",
+    "pinia": "^3.0.3",
+    "radix-vue": "^1.9.17",
+    "tailwind-merge": "^3.3.1",
+    "vue": "^3.5.18",
+    "vue-i18n": "^11.1.11",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250812.0",
+    "@tailwindcss/vite": "^4.1.11",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.1",
+    "vite-plugin-pwa": "^1.0.2",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.0.5",
+    "wrangler": "^4.30.0"
+  }
+}
