@@ -167,18 +167,13 @@ export function evaluateCompletenessPerTemplate(
   return result
 }
 
-export function listMergedVisibleQuestions(
-  merged: MergedInspectionView,
-  roomTypeId: string,
-  answers: RoomAnswers,
-) {
+function asSyntheticTemplate(merged: MergedInspectionView, roomTypeId: string): InspectionTemplate {
   const roomType = merged.roomTypes.find((rt) => rt.id === roomTypeId)
   if (!roomType) {
     throw new Error(`Unknown merged roomType "${roomTypeId}"`)
   }
 
-  // Reuse single-template helper shape by adapting.
-  const synthetic: InspectionTemplate = {
+  return {
     id: 'merged',
     version: '0.0.0',
     label: 'merged',
@@ -193,6 +188,26 @@ export function listMergedVisibleQuestions(
       },
     ],
   }
+}
 
-  return listVisibleQuestions(synthetic, roomTypeId, answers)
+export function listMergedVisibleQuestions(
+  merged: MergedInspectionView,
+  roomTypeId: string,
+  answers: RoomAnswers,
+) {
+  return listVisibleQuestions(asSyntheticTemplate(merged, roomTypeId), roomTypeId, answers)
+}
+
+export function evaluateMergedRoomCompleteness(
+  merged: MergedInspectionView,
+  roomTypeId: string,
+  answers: RoomAnswers,
+  photosByAttributeKey: Record<string, number> = {},
+): RoomCompleteness {
+  return evaluateRoomCompleteness(
+    asSyntheticTemplate(merged, roomTypeId),
+    roomTypeId,
+    answers,
+    photosByAttributeKey,
+  )
 }

@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 
 export default defineConfig({
+  // Monorepo: load VITE_* from repo root `.env` (not apps/pwa/)
+  envDir: path.resolve(__dirname, '../..'),
   plugins: [
     vue(),
     tailwindcss(),
@@ -35,10 +37,25 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallbackDenylist: [/^\/api\//],
+        // Include font files so the shell works fully offline after first visit.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 3,
+            },
+          },
+        ],
       },
+      // Dev SW cannot cache Vite's unbundled modules; offline shell needs build/preview.
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ],

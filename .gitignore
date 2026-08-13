@@ -29,6 +29,15 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Playwright
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
+
+# vite-plugin-pwa generated (dev)
+apps/pwa/dev-dist/
+
 # Cursor local/config — keep docs in sync, ignore the rest
 .cursor/*
 !.cursor/docs/

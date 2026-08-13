@@ -97,7 +97,7 @@ Reviewer-beslissing / goedkeuringsflow waar nodig; fijnmazige consolidatieregels
 - Bewijs gekoppeld aan subject (`Property | Floor | Room | Asset | Observation`)
 - Traceerbaar via `sourceInspectionId`
 - Zelfde eigenaarschap/visibility als bron
-- Client-side compressie vóór sync
+- Client-side compressie vóór sync (start: max 1920px lange zijde, JPEG ~0.72; SHA-256 checksum op blob)
 - Opslag: `storageProvider` + `storageKey` in Postgres; blob in R2 (MVP)
 
 ---
@@ -120,7 +120,7 @@ Geen aparte `Facade`-entiteit tenzij later herhaalbare subjects nodig blijken.
 ## Nog uit te werken
 
 - Exact share-model (rollen, scope) — rollen-detail tijdens dev; cross-org delen later
-- Retentie / storage-lifecycle foto’s (met klant)
+- ~~Retentie / storage-lifecycle foto’s~~ — ADR-018
 - Contractuele formulering data-eigenaarschap / verwerkersrol wanneer DPA of hosting-overdracht speelt
 
 Zie [ADR-002-observations-model.md](./decisions/ADR-002-observations-model.md) en [ADR-003-multi-tenant.md](./decisions/ADR-003-multi-tenant.md).

@@ -206,10 +206,30 @@
       "allowMultiplePerFloor": true,
       "questions": [
         { "attributeKey": "room.toegangType", "sortOrder": 1, "photoRequired": false },
-        { "attributeKey": "room.oppervlak4m2Boven2m", "sortOrder": 2, "photoRequired": false },
-        { "attributeKey": "room.daglichtMin05m2", "sortOrder": 3, "photoRequired": false },
-        { "attributeKey": "room.geisoleerd", "sortOrder": 4, "photoRequired": false },
-        { "attributeKey": "room.klimaatregeling", "sortOrder": 5, "photoRequired": false }
+        {
+          "attributeKey": "room.oppervlak4m2Boven2m",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.toegangType = \"trap\""
+        },
+        {
+          "attributeKey": "room.daglichtMin05m2",
+          "sortOrder": 3,
+          "photoRequired": false,
+          "showWhen": "room.this.toegangType = \"trap\""
+        },
+        {
+          "attributeKey": "room.geisoleerd",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "room.this.toegangType = \"trap\""
+        },
+        {
+          "attributeKey": "room.klimaatregeling",
+          "sortOrder": 5,
+          "photoRequired": false,
+          "showWhen": "room.this.toegangType = \"trap\""
+        }
       ]
     },
     {
@@ -218,8 +238,18 @@
       "allowMultiplePerFloor": true,
       "questions": [
         { "attributeKey": "room.toegankelijkVoorAuto", "sortOrder": 1, "photoRequired": true },
-        { "attributeKey": "room.geisoleerd", "sortOrder": 2, "photoRequired": false },
-        { "attributeKey": "room.klimaatregeling", "sortOrder": 3, "photoRequired": false }
+        {
+          "attributeKey": "room.geisoleerd",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.toegankelijkVoorAuto = false"
+        },
+        {
+          "attributeKey": "room.klimaatregeling",
+          "sortOrder": 3,
+          "photoRequired": false,
+          "showWhen": "room.this.toegankelijkVoorAuto = false"
+        }
       ]
     },
     {
@@ -249,7 +279,12 @@
           "photoRequired": false,
           "helpTextOverride": "Kan de meterkast vanuit het hoofdgebouw bediend worden."
         },
-        { "attributeKey": "room.gedeeldeMuurHoofdgebouw", "sortOrder": 2, "photoRequired": false }
+        {
+          "attributeKey": "room.gedeeldeMuurHoofdgebouw",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.binnendoorBereikbaar = false"
+        }
       ]
     }
   ]

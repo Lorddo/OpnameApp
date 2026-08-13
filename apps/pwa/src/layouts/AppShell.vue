@@ -1,8 +1,29 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/stores/auth'
+import { useSyncStore } from '@/stores/sync'
 
 const { t } = useI18n()
+const auth = useAuthStore()
+const sync = useSyncStore()
+const { globalState, pendingCount, failedCount, lastError, syncing, online } = storeToRefs(sync)
+
+onMounted(() => {
+  sync.start()
+})
+
+async function logout() {
+  await auth.signOut()
+  window.location.href = '/login'
+}
+
+async function onSyncNow() {
+  await sync.syncNow()
+}
 </script>
 
 <template>
@@ -32,9 +53,51 @@ const { t } = useI18n()
           >
             {{ t('nav.settings') }}
           </RouterLink>
+          <Button variant="secondary" size="sm" @click="logout">{{ t('nav.logout') }}</Button>
         </nav>
       </div>
     </header>
+
+    <div
+      class="border-b border-border"
+      :class="{
+        'bg-muted': globalState === 'idle',
+        'bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50':
+          globalState === 'pending' || globalState === 'syncing',
+        'bg-destructive/10 text-destructive': globalState === 'error',
+        'bg-muted text-muted-foreground': globalState === 'offline',
+      }"
+    >
+      <div
+        class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6"
+      >
+        <div class="min-w-0 text-sm">
+          <p class="font-medium">
+            <template v-if="globalState === 'offline'">{{ t('sync.offline') }}</template>
+            <template v-else-if="globalState === 'syncing'">{{ t('sync.syncing') }}</template>
+            <template v-else-if="globalState === 'error'">
+              {{ t('sync.error', { n: failedCount }) }}
+            </template>
+            <template v-else-if="globalState === 'pending'">
+              {{ t('sync.pending', { n: pendingCount }) }}
+            </template>
+            <template v-else>{{ t('sync.idle') }}</template>
+          </p>
+          <p v-if="lastError && globalState === 'error'" class="truncate text-xs opacity-90">
+            {{ lastError }}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          class="shrink-0 bg-background"
+          :disabled="syncing || !online"
+          @click="onSyncNow"
+        >
+          {{ syncing ? t('sync.syncing') : t('sync.now') }}
+        </Button>
+      </div>
+    </div>
 
     <main class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-2">
       <RouterView />

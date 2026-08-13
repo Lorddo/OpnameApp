@@ -20,6 +20,8 @@ Architecture Decision Records voor het vastgoed-opnameplatform.
 | [ADR-014-facts-as-view.md](./ADR-014-facts-as-view.md) | Facts als security_invoker view | Akkoord |
 | [ADR-015-combined-inspection.md](./ADR-015-combined-inspection.md) | Gecombineerde opname + template-pins | Akkoord |
 | [ADR-016-client-org-assignment.md](./ADR-016-client-org-assignment.md) | Opdrachtgever + toewijzing + API-keys | Akkoord |
+| [ADR-017-multi-device-silent-lww.md](./ADR-017-multi-device-silent-lww.md) | Multi-device = aparte inspections; stil LWW | Akkoord |
+| [ADR-018-photo-retention-local-purge.md](./ADR-018-photo-retention-local-purge.md) | Server 6m retentie; device blobs houden; lokaal wissen | Akkoord |
 
 Bij nieuwe architectuurkeuzes: nieuw ADR-bestand toevoegen (`ADR-00N-…md`).
 
@@ -70,6 +72,10 @@ Bij nieuwe architectuurkeuzes: nieuw ADR-bestand toevoegen (`ADR-00N-…md`).
 | Gecombineerde opname | Meerdere `inspection_template_pins` per inspection | Akkoord |
 | Opdrachtgever | `org_type` client/inspection/platform + `property_assignments` | Akkoord |
 | Dashboard-access | API-keys (gehasht, org-scoped) naast JWT | Akkoord |
+| Multi-device | Aparte inspections per inspecteur op zelfde property; geen shared inspection | Akkoord |
+| LWW conflict-UX | Stil overschrijven in MVP; history blijft; geen melding | Akkoord |
+| Foto-retentie (server) | 6 maanden na sync default (3 mnd ok); product-lifecycle = dashboard | Akkoord |
+| Foto’s op device | Na sync blobs behouden; project-verwijderen wist géén foto’s | Akkoord |
 | EPA/NEN2580/WO/BOG/brand | Meerwerk | Akkoord |
 | Scan/LiDAR-app | Later frontend; niet op wachten | Akkoord |
 | Partner CSV/templates | Apart project; out of scope hier | Akkoord |
@@ -80,8 +86,8 @@ Bij nieuwe architectuurkeuzes: nieuw ADR-bestand toevoegen (`ADR-00N-…md`).
 - Exacte rollen-rechten tijdens dev
 - Concrete attribute-sets voor BBMI (fase 3) en WWS (fase 4) — BBMI: [`templates/bbmi/0.1.0.json`](../../templates/bbmi/0.1.0.json) + [template-config.md](../template-config.md)
 - API-contract OpenAPI + dossier-payload shape — JSON-export akkoord; zie [api-contracts.md](../api-contracts.md)
-- Sync UX-details (retry/backoff, conflict-melding) in fase 2
-- Retentie / storage-lifecycle foto’s (met klant)
+- Sync UX-details (retry/backoff) in fase 2 — conflict-melding: stil LWW (ADR-017)
+- ~~Retentie / storage-lifecycle foto’s (met klant)~~ — **besloten:** ADR-018
 - Contractuele formulering verwerker vs. opdrachtgever wanneer DPA / hosting-overdracht speelt
 
 ### Partijen (communicatie)

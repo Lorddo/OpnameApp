@@ -43,10 +43,10 @@ todos:
     status: completed
   - id: phase1-dashboard-access
     content: "Fase 1: machine-to-machine toegang voor het Pranimate-dashboard (opdrachten aanmaken en toewijzen via de API)"
-    status: pending
+    status: completed
   - id: phase1-auth
     content: "Fase 1: Supabase Auth met uitnodigingsflow, profielen/org-lidmaatschap, rollen in app_metadata, JWT-validatie in Worker, offline sessiebeheer"
-    status: pending
+    status: completed
   - id: phase1-core-engine
     content: "Fase 1: showWhen-parser + evaluator + compleetheids-engine in packages/core met unit-tests"
     status: completed
@@ -55,28 +55,28 @@ todos:
     status: completed
   - id: phase1-api
     content: "Fase 1: API-endpoints (templates, properties, inspections, observations, facts, photos, dossier-export) + OpenAPI"
-    status: pending
+    status: completed
   - id: phase1-pwa-flow
     content: "Fase 1: PWA opnameflow online in 4 stappen (adres + inspectieselectie, lagen/ruimtes, gecombineerde checklist, afronden) met foto's, dossier-download en NL/EN"
-    status: pending
+    status: completed
   - id: phase1-demo
     content: "Fase 1: demo mijlpaal 2 en acceptatie"
-    status: pending
+    status: completed
   - id: phase2-dexie
     content: "Fase 2: Dexie-schema, repository-laag en client-UUID/device_id introduceren"
-    status: pending
+    status: completed
   - id: phase2-sync
     content: "Fase 2: pull/push sync-engine met cursors, idempotentie, retry/backoff en LWW-conflictregel"
-    status: pending
+    status: completed
   - id: phase2-photos
     content: "Fase 2: fotopijplijn offline (compressie, lokale blobs, presigned R2 upload-queue, checksums, partial failure)"
-    status: pending
+    status: completed
   - id: phase2-sync-ux
     content: "Fase 2: sync-status UI, app-update-flow en multi-device scenario op een project"
-    status: pending
+    status: completed
   - id: phase2-tests
     content: "Fase 2: offline E2E-tests (Playwright) en offline-sync docs bijwerken"
-    status: pending
+    status: completed
   - id: phase3-bbmi
     content: "Fase 3: BBMI gap-analyse, template 1.0.0 met property/floor/asset-scope, fotoverplichtingen, compleetheidsbeeld"
     status: pending
@@ -315,10 +315,10 @@ Nog open:
 - Pull-sync: templates, toegewezen properties en inspections met cursor op `updated_at`; toegewezen opdrachten uit het Pranimate-dashboard komen langs dezelfde weg binnen.
 - Sessiebeheer offline: token verversen bij het eerste netwerkmoment van een synchronisatieronde, met nette afhandeling als de refresh faalt (veldwerk blijft mogelijk, alleen sync wacht en de gebruiker krijgt een heldere melding om opnieuw in te loggen).
 - Push-sync: gebatched, idempotent, in afhankelijkheidsvolgorde (property, floors, rooms, inspection, observations, foto-metadata), met retry en exponentiële backoff.
-- Conflictregel: veld-niveau last-write-wins binnen dezelfde `owner_org_id`, history bewaard; geen stille overschrijving van claims van een andere org.
-- Fotopijplijn: opname, client-side compressie in een web worker, lokale blob-opslag, aparte upload-queue naar presigned R2, checksum-verificatie, hervatten na falen. Partial failure is toegestaan: metadata gesynct terwijl een foto nog in de wachtrij staat.
+- Conflictregel: veld-niveau last-write-wins binnen dezelfde `owner_org_id`, history bewaard; geen stille overschrijving van claims van een andere org. **UX:** stil LWW in de PWA (geen conflict-melding in MVP) — [ADR-017](.cursor/docs/decisions/ADR-017-multi-device-silent-lww.md).
+- Fotopijplijn: opname, client-side compressie, lokale blob-opslag, upload-queue naar R2, checksum-verificatie, hervatten na falen. Partial failure is toegestaan: metadata gesynct terwijl een foto nog in de wachtrij staat.
 - Sync-status in de UI: Concept / Pending sync / Gesynchroniseerd / Syncfout, per project én globaal, met een expliciete "nu synchroniseren"-actie (geen betrouwbare background sync op iOS).
-- Meerdere devices op hetzelfde project (offerte-eis): testscenario met twee inspecteurs op één property.
+- Meerdere devices op hetzelfde project (offerte-eis): **aparte inspections** per inspecteur op dezelfde property; geen co-editing van één inspection — [ADR-017](.cursor/docs/decisions/ADR-017-multi-device-silent-lww.md).
 - Service-worker cachingstrategie en een nette app-update-flow, zodat er geen halve versies in het veld blijven hangen.
 - Offline E2E-tests met Playwright, inclusief netwerk uit/aan en app-herstart met openstaande queue.
 - Docs: [offline-sync.md](.cursor/docs/offline-sync.md) bijwerken met de daadwerkelijke payloads en het retry-beleid.
@@ -327,10 +327,10 @@ Definition of done mijlpaal 3: vliegtuigmodus-opname met foto's, app afsluiten, 
 
 ### Overleg in fase 2
 
-- Retentie en storage-lifecycle van foto's (hoe lang, wie mag verwijderen) — nog open in de docs.
-- Maximale foto-resolutie en compressieniveau: bewijskracht versus dataverbruik in het veld.
-- Wat toont de UI bij een LWW-conflict tussen twee devices: stil overschrijven of een melding?
-- Nu een opnemer alleen zijn eigen opnames ziet: moeten twee collega's samen aan één opname van een groot object kunnen werken, of is één opname altijd van één inspecteur en werken ze anders met aparte opnames op hetzelfde object? De offerte spreekt van meerdere devices op hetzelfde project, wat beide kan betekenen.
+- ~~Retentie en storage-lifecycle van foto's~~ — **besloten:** product-lifecycle = dashboard; onze R2/DB ~6 maanden na sync; device blobs behouden; lokaal wissen — [ADR-018](.cursor/docs/decisions/ADR-018-photo-retention-local-purge.md).
+- Maximale foto-resolutie en compressieniveau: startwaarden in code/docs; fine-tuning met veldfeedback.
+- ~~Wat toont de UI bij een LWW-conflict tussen twee devices~~ — **besloten:** stil LWW ([ADR-017](.cursor/docs/decisions/ADR-017-multi-device-silent-lww.md)).
+- ~~Gedeelde opname vs aparte inspections~~ — **besloten:** geen shared inspection; multi-device/project = aparte inspections op dezelfde property ([ADR-017](.cursor/docs/decisions/ADR-017-multi-device-silent-lww.md)).
 
 ---
 

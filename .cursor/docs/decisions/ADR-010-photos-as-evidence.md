@@ -21,7 +21,7 @@ Foto’s zijn bewijs bij vastgoedopnames. Als ze alleen “aan het project” ha
 ## Consequenties
 
 - Upload-queue en compressie horen bij fase 2
-- Retentie / storage-lifecycle nog uit te werken
+- Retentie: zie [ADR-018](./ADR-018-photo-retention-local-purge.md)
 - Templates kunnen fotoverplichting per attribute afdwingen
 
 ## Alternatieven (verworpen)

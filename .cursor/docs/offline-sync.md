@@ -1,8 +1,41 @@
 # Offline sync
 
-**Status:** productvoorstel / offertefase  
-**Laatst bijgewerkt:** 2026-08-10  
+**Status:** fase 2 in uitvoering  
+**Laatst bijgewerkt:** 2026-08-13  
 **ADR:** [ADR-001-offline-first.md](./decisions/ADR-001-offline-first.md)
+
+---
+
+## Pull-sync
+
+`GET /api/sync/pull` met cursors op `published_at` (templates) en `updated_at` (properties/inspections).
+
+Client (`apps/pwa/src/db/pull.ts`):
+
+1. Push outbox eerst (`flushOutbox`)
+2. Pull page(s) tot `truncated` false
+3. Schrijf naar Dexie; **overschrijf geen** lokale rijen met `syncStatus` pending/error/draft
+4. Bewaar cursors in `syncMeta`
+
+`syncNow` in de sync-store doet push + pull + projectenlijst-refresh.
+
+## Conflict / multi-device
+
+Zie [ADR-017](./decisions/ADR-017-multi-device-silent-lww.md):
+
+- Geen shared inspection; meerdere inspecteurs → aparte inspections op dezelfde property
+- LWW UX: stil; history blijft in observations
+
+---
+
+## Offline app shell
+
+- In **`pnpm dev`** werkt vliegtuigmodus **niet** voor de shell: Vite laadt modules live vanaf het netwerk.
+- Offline testen: `pnpm --filter @opnameapp/pwa preview:offline`, app één keer online openen (SW precache), daarna DevTools → Offline.
+- Auth-init blokkeert de UI niet meer; sessie komt uit lokale storage met timeout-fallback.
+- Fonts zijn self-hosted (`@fontsource/source-sans-3`), geen Google Fonts-CDN.
+- Productie/preview: Workbox cacheert shell + fonts; navigatie NetworkFirst met fallback.
+- App-update: `registerType: 'prompt'` + `ReloadPrompt` (herladen bij nieuwe SW); periodieke update-check elk uur.
 
 ---
 
@@ -17,40 +50,73 @@ Alle invoer eerst lokaal; synchronisatie daarna. Vanaf fase 2 is offline de prim
 ```text
 Gebruiker
   → Lokale opslag (IndexedDB / Dexie)
-  → Sync Queue
-  → API
-  → Database (bron van waarheid)
+    → Sync Queue (outbox)
+      → API
+        → Database (bron van waarheid)
 ```
 
-Nooit direct als enige bron naar de server schrijven vanuit de UI.
+Implementatie (PWA):
+
+- Dexie DB `opnameapp` in `apps/pwa/src/db/`
+- Repository-writes in `apps/pwa/src/db/repository.ts`
+- Outbox + flush in `apps/pwa/src/db/outbox.ts` / `sync.ts`
+- Stabiele `device_id` in `localStorage` (`opnameapp.device_id`)
+- Client-IDs: UUID v7 via `apps/pwa/src/db/ids.ts`
 
 ---
 
-## Sync-contract (richting)
+## Outbox
 
-- Elke entiteit: stabiele `id` (UUID), `updatedAt`, bij voorkeur ook `version` of `(updatedAt + deviceId)`
-- **Veld-niveau last-write-wins** + history via observations (binnen eigenaarscope)
-- Foto’s: immutable blobs
-- iOS/PWA: geen betrouwbare Background Sync → sync bij openen app + wanneer online terwijl app open is
-- UI-status per project: Concept / Pending sync / Gesynchroniseerd / Syncfout
+Elke write enqueued een item:
 
-Conflictregels in detail: [business-rules.md](./business-rules.md).
+| Op | Push |
+|---|---|
+| `property.upsert` | `POST /api/properties` |
+| `floor.upsert` / `floor.delete` | floors API |
+| `room.upsert` / `room.delete` | rooms API |
+| `inspection.upsert` / `inspection.patch` | inspections API |
+| `observations.batch` | `POST /api/observations/batch` |
+| `photo.meta` | `POST /api/photos/upload-url` |
+| `photo.content` | `PUT /api/photos/:id/content` (lokaal blob) |
+
+Regels:
+
+- Flush bij app-start, bij `window.online`, en na elke write (best-effort)
+- Retry met exponentiële backoff (1s → max 5 min)
+- `photo.content` hangt aan `dependsOn: [photo.meta outbox id]`
+- Partial failure toegestaan: metadata kan synchen terwijl blob nog in `photoBlobs` staat
 
 ---
 
 ## Identifiers
 
-- Client genereert UUIDs (bij voorkeur UUID v7 / ULID-achtig)
+- Client genereert UUID v7
 - Server accepteert client-ids bij create (idempotent sync)
+- `device_id` op observations voor conflict/debug-metadata
+
+---
+
+## Sync-status (lokaal)
+
+Per entiteit: `draft` | `pending` | `synced` | `error`  
+UI: globale sync-balk + per-project Concept / Pending / Synced / Error; actie “Nu synchroniseren”.
 
 ---
 
 ## Foto’s
 
-- Compressie aan de client-kant vóór opslag/sync
-- Upload via queue (apart van metadata-sync indien nodig)
-- Metadata in Postgres (`storageProvider` + `storageKey`); blobs in **R2** (MVP)
-- Offline-queue is blob-store-agnostisch: later switch naar Supabase Storage = migratie + key-update, geen herschrijven van sync-logica
+- Client-side prep vóór Dexie (`apps/pwa/src/db/photo-prepare.ts`): max lange zijde **1920px**, JPEG quality **0.72**, SHA-256 checksum
+- Gecomprimeerde blob in Dexie `photoBlobs`; checksum in foto-meta + `photo.meta` outbox-payload
+- Partial failure: meta kan synchen terwijl `photo.content` nog in de queue staat
+- Na succesvolle upload: **lokale blob blijft** (ADR-018); ruimte vrijmaken via “van apparaat wissen”
+- Worker-mediated PUT blijft voor nu (same-origin); echte presigned R2 kan later zonder outbox-op te wijzigen
+- Fine-tuning resolutie/kwaliteit met veldfeedback
+
+---
+
+## Lokale purge
+
+`purgePropertyLocal(propertyId)` wist property + floors/rooms/inspections/observations + gerelateerde (niet-foto) outbox-rijen **alleen op dit apparaat**. **Foto’s/`photoBlobs` blijven.** Server/R2 blijft. Zie ADR-018.
 
 ---
 
@@ -63,14 +129,15 @@ Conflictregels in detail: [business-rules.md](./business-rules.md).
 
 ---
 
-## Open punten
+## Open punten (overleg)
 
-- Exacte sync-payload shapes (later in [api-contracts.md](./api-contracts.md))
-- Retry / backoff-beleid (richting: wel retry; details in fase 2)
-- Partial failure: **toestaan** (metadata ok, foto faalt) + hernieuwde foto-upload
-- Device-conflict UX bij LWW (fase 2)
+- Fine-tune max foto-resolutie / compressieniveau (start: 1920px / JPEG 0.72)
+- Server cleanup-job (6 maanden na sync) — later hardening
 
-## Photo upload
+## E2E
 
-**Presigned R2** (MVP): Worker geeft tijdelijke upload-URL; client uploadt blob direct naar R2.  
-Niet via Worker-proxy (body-limits, bandbreedte, trager bij veel foto’s).
+```bash
+pnpm --filter @opnameapp/pwa test:e2e
+```
+
+Smoke: SW precache → offline reload van login-shell; outbox-rij blijft na offline herstart in IndexedDB.

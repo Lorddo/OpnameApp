@@ -138,7 +138,7 @@ Doel: werkend platformpatroon + BBMI + WWS. Geen “alles tegelijk”.
 - Veldflow: lagen → roomTypes → room-checklist; verplicht = zichtbaar + in template
 - Verplichte attributes / foto’s / onderdelen voor BBMI
 - Compleetheidsbeeld (dossier-view t.o.v. BBMI-template)
-- Afstemming attribute-set met klant ([`templates/bbmi/0.1.0.json`](../templates/bbmi/0.1.0.json))
+- Afstemming attribute-set met klant ([`templates/bbmi/bbmi-0.1.0.json`](../templates/bbmi/bbmi-0.1.0.json))
 
 ### Fase 4 — WWS-template
 

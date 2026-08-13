@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@opnameapp/core": "workspace:*",
+    "@supabase/supabase-js": "2.55.0",
     "hono": "^4.9.0",
+    "jose": "5.10.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {

@@ -12,6 +12,10 @@ account_id = "c4bca857ae3a03d942fa638b2d82f03f"
 
 workers_dev = true
 
+# Keep local API on a stable port (Vite proxies /api here)
+[dev]
+port = 8787
+
 # R2 binding — code uses env.PHOTOS_BUCKET
 [[r2_buckets]]
 binding = "PHOTOS_BUCKET"

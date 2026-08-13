@@ -226,6 +226,6 @@ Rapportgeneratie zelf hoort bij het **klantdashboard** (buiten scope); wij lever
 ## Nog uit te werken (implementatie)
 
 - Exact share-model (rollen, scope) — tijdens dev; cross-org delen later
-- Concrete attribute-sets voor BBMI (fase 3) en WWS (fase 4) — BBMI: [`templates/bbmi/0.1.0.json`](../../templates/bbmi/0.1.0.json) + [template-config.md](./template-config.md)
-- Retentie / storage-lifecycle foto’s (met klant)
+- Concrete attribute-sets voor BBMI (fase 3) en WWS (fase 4) — BBMI: [`templates/bbmi/bbmi-0.1.0.json`](../../templates/bbmi/bbmi-0.1.0.json) + [template-config.md](./template-config.md)
+- ~~Retentie / storage-lifecycle foto’s~~ — [ADR-018](./decisions/ADR-018-photo-retention-local-purge.md)
 - TypeScript types / sync payloads (later apart document indien nodig)

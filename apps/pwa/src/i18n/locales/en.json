@@ -5,25 +5,130 @@
   },
   "nav": {
     "projects": "Projects",
-    "settings": "Settings"
+    "settings": "Settings",
+    "logout": "Sign out"
   },
-  "home": {
-    "title": "Welcome",
-    "body": "Scaffold environment for the field PWA. Capture flow follows in phase 1.",
-    "health": "API status",
-    "healthOk": "Reachable",
-    "healthFail": "Unreachable",
-    "checking": "Checking…"
+  "login": {
+    "subtitle": "Sign in with your invite (email + password).",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…"
+  },
+  "auth": {
+    "callbackTitle": "Activate account",
+    "callbackWorking": "Setting up your session…",
+    "callbackFailed": "This link is invalid or expired. Request a new invite/recovery link.",
+    "callbackNoSession": "No session found in the link.",
+    "setPasswordSubtitle": "Choose a password to activate your account.",
+    "changePasswordSubtitle": "Set a new password.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "savePassword": "Save password",
+    "savingPassword": "Saving…",
+    "passwordTooShort": "At least 8 characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordUpdated": "Password updated."
+  },
+  "projects": {
+    "title": "Projects",
+    "body": "Assigned and self-created inspections.",
+    "new": "New inspection",
+    "empty": "No inspections yet.",
+    "dossier": "Dossier",
+    "continue": "Continue",
+    "removeLocal": "Delete",
+    "removeLocalConfirm": "Remove this project locally? Server data stays. Photos on this device are kept.",
+    "removeLocalConfirmPending": "There are unsynced changes. They will be lost on this device (photos are kept). Continue?",
+    "status": {
+      "draft": "Draft",
+      "assigned": "Assigned",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "synced": "Synced"
+    }
+  },
+  "sync": {
+    "now": "Sync now",
+    "idle": "Everything synced",
+    "pending": "{n} changes waiting to sync",
+    "syncing": "Syncing…",
+    "error": "Sync error ({n})",
+    "offline": "Offline — changes stay on this device",
+    "project": {
+      "draft": "Draft",
+      "pending": "Pending sync",
+      "synced": "Synced",
+      "error": "Sync error"
+    }
+  },
+  "pwa": {
+    "updateAvailable": "A new version of the app is available. Reload to update.",
+    "offlineReady": "App is ready for offline use.",
+    "reload": "Reload",
+    "dismiss": "Later"
+  },
+  "flow": {
+    "title": "New inspection",
+    "resumeTitle": "Resume inspection",
+    "step": "Step {n} of 4",
+    "postcode": "Postcode",
+    "houseNumber": "House number",
+    "addition": "Addition",
+    "templates": "Inspections in this visit",
+    "start": "Start inspection",
+    "floors": "Floors",
+    "floorsHint": "Add floors by name. Works for a house and for a high-rise.",
+    "floorPlaceholder": "e.g. Ground floor or 12th floor",
+    "addFloor": "Add",
+    "removeFloor": "Remove",
+    "addFloorsRange": "Add 1st through",
+    "addFloorsRangeSuffix": "floor",
+    "rooms": "Rooms",
+    "noRoomsOnFloor": "No rooms on this floor.",
+    "toChecklist": "Go to checklist",
+    "backToFloors": "Back to floors",
+    "choose": "Choose…",
+    "saveAnswers": "Save answers",
+    "finish": "Complete inspection",
+    "incomplete": "{n} questions still open. Answer every visible question before completing.",
+    "incompletePhotos": "{n} required photos still missing.",
+    "unanswered": "Not answered yet",
+    "photos": "Photos",
+    "photoRequired": "Required",
+    "photoMissing": "Photo missing",
+    "addPhoto": "Take / choose photo",
+    "takePhoto": "Take photo",
+    "choosePhoto": "Choose from gallery",
+    "photoUploading": "Uploading…",
+    "photoAlt": "Evidence photo",
+    "completed": "Inspection completed and ready to sync.",
+    "downloadDossier": "Download dossier JSON"
+  },
+  "dossier": {
+    "title": "Dossier",
+    "backToDashboard": "Back to dashboard",
+    "edit": "Edit",
+    "inspections": "Inspections",
+    "inspection": "Inspection",
+    "startedAt": "Started",
+    "completedAt": "Completed",
+    "noAnswers": "No answers recorded.",
+    "empty": "No data in this dossier yet."
   },
   "settings": {
     "title": "Settings",
     "language": "Language",
     "theme": "Theme",
     "themePranimate": "Pranimate",
-    "themeSlate": "Slate (demo white-label)"
+    "themeSlate": "Slate (demo white-label)",
+    "password": "Password"
   },
   "common": {
     "nl": "Nederlands",
-    "en": "English"
+    "en": "English",
+    "loading": "Loading…",
+    "yes": "Yes",
+    "no": "No"
   }
 }

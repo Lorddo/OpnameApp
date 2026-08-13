@@ -1,100 +1,80 @@
 # API contracts
 
-**Status:** richting — contract nog niet vastgelegd  
-**Laatst bijgewerkt:** 2026-08-10
+**Status:** fase 1 implementatie (v0.1)  
+**Laatst bijgewerkt:** 2026-08-13
 
-Dit document beschrijft de **bekende richting** en open punten. Concrete OpenAPI/endpoints volgen tijdens implementatie (fase 1).
+OpenAPI: `GET /api/openapi.json`
 
----
+## Auth
 
-## Rol van de API
-
-- Technische bron van waarheid voor het platform (samen met Postgres)
-- Enige schrijfpad vanaf clients na de lokale sync queue ([offline-sync.md](./offline-sync.md))
-- Koppelvlak voor klantdashboard, latere iOS/LiDAR-frontend, management portal
-
-Externe systemen koppelen **op onze API** — niet andersom als primaire integratie.
-
----
-
-## Clients
-
-| Client | Verwacht gebruik |
+| Pad | Header |
 |---|---|
-| Inspectie PWA | Auth, templates, properties/inspections CRUD, observations, foto-upload, sync |
-| Klantdashboard | Read/export: property-dossier, facts/observations binnen visibility, compleetheid t.o.v. template |
-| iOS LiDAR-scan (later) | Zelfde domain resources; eventueel meetdata als observations/attachments |
-| Management portal | Orgs, users, templates/attribute-catalogus |
+| Gebruiker (PWA) | `Authorization: Bearer <supabase_access_token>` |
+| Dashboard (M2M) | `Authorization: Bearer opk_<prefix>_<secret>` |
 
----
+JWT moet `app_metadata.org_id` (en idealiter `org_role`) bevatten. API-keys worden gehasht opgeslagen (`api_keys`).
 
-## Auth & tenancy
+## Endpoints (v0.1)
 
-- Token/JWT (bijv. Supabase Auth), gevalideerd in Cloudflare Workers
-- Autorisatie in API **én** database (RLS) — niet alleen client
-- Requests zijn org-scoped; `owner_org_id` / visibility afdwingen server-side
+| Method | Path | Doel |
+|---|---|---|
+| GET | `/api/sync/pull?sinceTemplates=&sinceProperties=&sinceInspections=` | Incremental pull voor offline clients |
+| GET | `/api/me` | Auth-context |
+| POST | `/api/me/api-keys` | API-key aanmaken (org admin) |
+| GET | `/api/templates` | Lijst templates |
+| GET | `/api/templates/:key/:version` | Template config |
+| GET/POST | `/api/properties` | Objecten |
+| GET | `/api/properties/:id` | Object + floors/rooms/assets |
+| POST | `/api/properties/:id/floors` | Laag toevoegen |
+| POST | `/api/properties/:id/rooms` | Ruimte toevoegen |
+| GET/POST | `/api/inspections` | Opnames (+ template pins bij create) |
+| PATCH | `/api/inspections/:id` | Status bijwerken |
+| POST | `/api/observations/batch` | Batch upsert observations |
+| GET | `/api/facts?propertyId=` | Facts-view |
+| POST | `/api/photos/upload-url` | Foto-metadata + upload target |
+| PUT | `/api/photos/:id/content` | Binary upload naar R2 |
+| GET | `/api/photos/:id/content` | Binary download uit R2 |
+| GET | `/api/photos?propertyId=&inspectionId=` | Foto-metadata lijst |
+| GET | `/api/exports/properties/:id/dossier` | JSON-dossier (`schemaVersion: 1`) |
+| POST | `/api/assignments` | Property toewijzen aan inspection-org |
+| POST | `/api/admin/provision-inspector` | Org (optioneel) + user invite/link + `app_metadata` + `org_members` |
+| POST | `/api/admin/assign-inspection` | Property + inspection (+ pins) vanuit dashboard |
 
----
+## Dashboard provisioning
 
-## Resource-richting (conceptueel)
+Auth: `Authorization: Bearer opk_…` (API-key). Lege `scopes` = alles; anders o.a. `provision:users`, `assignments:write`.
 
-Nog geen vaste paths; verwachte resource-families:
+### `POST /api/admin/provision-inspector`
 
-| Familie | Doel |
-|---|---|
-| `/auth` / session | Login, token refresh |
-| `/organizations`, `/users` | Tenant/org-context |
-| `/properties` | Objectidentiteit, floors, rooms, assets |
-| `/inspections` | Opname-instanties + gepinde templateVersion |
-| `/observations` | Claims create/update (idempotent op client UUID) |
-| `/facts` | Geconsolideerde waarden (read; scoped) |
-| `/photos` | Metadata + upload URL / multipart |
-| `/templates`, `/attributes` | Catalogus + template configs (versioned) |
-| `/sync` | Batch pull/push queue payloads (fase 2) |
-| `/exports` / dossier | View-payload voor dashboard / meeneembaarheid |
+```json
+{
+  "email": "jan@bureau.nl",
+  "displayName": "Jan",
+  "role": "inspector",
+  "sendInvite": true,
+  "organization": {
+    "externalId": "pranimate-org-123",
+    "name": "Bureau Noord",
+    "orgType": "inspection"
+  }
+}
+```
 
-Exacte shapes: TBD. Domeinvelden volgen [data-model.md](./data-model.md) en [diagrams/er-detailed.md](./diagrams/er-detailed.md).
+- Platform-API-key: mag orgs aanmaken/updaten via `externalId` onder dezelfde tenant.
+- Inspection-org key / org-admin JWT: nodigt alleen uit in **eigen** org (organization-payload weglaten of eigen id).
+- Zet altijd `app_metadata.org_id` + `org_role` en `org_members`.
 
----
+### `POST /api/admin/assign-inspection`
 
-## Sync-contract (API-kant)
+```json
+{
+  "assignedUserEmail": "jan@bureau.nl",
+  "templates": [{ "templateKey": "bbmi", "templateVersion": "0.1.0" }],
+  "property": { "postcode": "1234AB", "houseNumber": "1" },
+  "inspection": { "status": "assigned" }
+}
+```
 
-- Client-gegenereerde UUIDs accepteren bij create (idempotent)
-- Entiteiten: `id`, `updatedAt`, bij voorkeur `version` of `(updatedAt + deviceId)`
-- Conflict: veld-LWW binnen eigenaarscope; history via observations
-- Foto’s: immutable blobs; metadata apart
+## Dossier shape (schemaVersion 1)
 
-Details: [offline-sync.md](./offline-sync.md).
-
----
-
-## Scope t.o.v. klant
-
-| Wij leveren | Klant bouwt |
-|---|---|
-| API + auth + export/dossier-payloads | Dashboard UI |
-| Gestructureerde opnamedata | Rapportgeneratie (BBMI/WWS/…) |
-
----
-
-## Export
-
-- **MVP:** JSON dossier-export (akkoord)
-- Extra formaten (CSV, ZIP met foto’s) later toevoegbaar — export is een view, geen bron van waarheid
-
-## Open contractpunten (implementatie)
-
-- [ ] Concrete endpoints, request/response schemas (OpenAPI)
-- [ ] Auth scopes / roles mapping (rollen-detail tijdens dev)
-- [ ] Dossier-payload shape voor klantdashboard (JSON)
-- [ ] Sync batch protocol (push/pull, cursors, error codes)
-- [ ] Photo upload: **presigned R2** (niet proxy); metadata `storageProvider` + `storageKey`
-- [ ] Webhooks / events (niet nodig voor MVP)
-
----
-
-## Zie ook
-
-- [architecture.md](./architecture.md)
-- [workflows.md](./workflows.md)
-- [business-rules.md](./business-rules.md)
+`property`, `floors`, `rooms`, `assets`, `inspections`, `observations`, `facts`, `photos`, `completeness` (per gepind template).

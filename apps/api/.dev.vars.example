@@ -6,10 +6,18 @@
 
 # Supabase
 SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-# Prefer JWKS validation in later phases; secret kept for local/dev fallback
+# Preferred new keys:
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+# Legacy aliases (optional if the new keys above are set):
+# SUPABASE_ANON_KEY=
+# SUPABASE_SERVICE_ROLE_KEY=
+
+# Prefer JWKS validation; secret kept for local/dev fallback
 SUPABASE_JWT_SECRET=
 
 # Optional: CORS origin for local Vite (production is same-origin via PWA worker)
 CORS_ORIGIN=http://127.0.0.1:5173
+
+# Invite / recovery redirect — must be allowlisted in Supabase Auth → URL Configuration
+INVITE_REDIRECT_URL=http://localhost:5173/auth/callback

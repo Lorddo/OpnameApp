@@ -5,25 +5,130 @@
   },
   "nav": {
     "projects": "Projecten",
-    "settings": "Instellingen"
+    "settings": "Instellingen",
+    "logout": "Uitloggen"
   },
-  "home": {
-    "title": "Welkom",
-    "body": "Skeletomgeving voor de veld-PWA. Opnameflow volgt in fase 1.",
-    "health": "API-status",
-    "healthOk": "Bereikbaar",
-    "healthFail": "Niet bereikbaar",
-    "checking": "Controleren…"
+  "login": {
+    "subtitle": "Log in met je uitnodiging (e-mail + wachtwoord).",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "submit": "Inloggen",
+    "submitting": "Bezig…"
+  },
+  "auth": {
+    "callbackTitle": "Account activeren",
+    "callbackWorking": "Sessie wordt ingesteld…",
+    "callbackFailed": "De link is ongeldig of verlopen. Vraag een nieuwe invite/recovery link.",
+    "callbackNoSession": "Geen sessie gevonden in de link.",
+    "setPasswordSubtitle": "Kies een wachtwoord om je account te activeren.",
+    "changePasswordSubtitle": "Stel een nieuw wachtwoord in.",
+    "newPassword": "Nieuw wachtwoord",
+    "confirmPassword": "Bevestig wachtwoord",
+    "savePassword": "Wachtwoord opslaan",
+    "savingPassword": "Opslaan…",
+    "passwordTooShort": "Minimaal 8 tekens.",
+    "passwordMismatch": "Wachtwoorden komen niet overeen.",
+    "passwordUpdated": "Wachtwoord bijgewerkt."
+  },
+  "projects": {
+    "title": "Projecten",
+    "body": "Toegewezen en zelf aangemaakte opnames.",
+    "new": "Nieuwe opname",
+    "empty": "Nog geen opnames.",
+    "dossier": "Dossier",
+    "continue": "Doorgaan",
+    "removeLocal": "Verwijderen",
+    "removeLocalConfirm": "Dit project lokaal verwijderen? Data op de server blijft staan. Foto’s op dit apparaat blijven bewaard.",
+    "removeLocalConfirmPending": "Er staan nog niet-gesynchroniseerde wijzigingen. Die gaan verloren op dit apparaat (foto’s blijven). Doorgaan?",
+    "status": {
+      "draft": "Concept",
+      "assigned": "Toegewezen",
+      "in_progress": "Bezig",
+      "completed": "Afgerond",
+      "synced": "Gesynchroniseerd"
+    }
+  },
+  "sync": {
+    "now": "Nu synchroniseren",
+    "idle": "Alles gesynchroniseerd",
+    "pending": "{n} wijzigingen wachten op sync",
+    "syncing": "Bezig met synchroniseren…",
+    "error": "Syncfout ({n})",
+    "offline": "Offline — wijzigingen blijven lokaal bewaard",
+    "project": {
+      "draft": "Concept",
+      "pending": "Pending sync",
+      "synced": "Gesynchroniseerd",
+      "error": "Syncfout"
+    }
+  },
+  "pwa": {
+    "updateAvailable": "Er is een nieuwe versie van de app. Herlaad om bij te werken.",
+    "offlineReady": "App is klaar voor offline gebruik.",
+    "reload": "Herladen",
+    "dismiss": "Later"
+  },
+  "flow": {
+    "title": "Nieuwe opname",
+    "resumeTitle": "Opname hervatten",
+    "step": "Stap {n} van 4",
+    "postcode": "Postcode",
+    "houseNumber": "Huisnummer",
+    "addition": "Toevoeging",
+    "templates": "Inspecties in deze opname",
+    "start": "Start opname",
+    "floors": "Verdiepingen",
+    "floorsHint": "Voeg verdiepingen toe met een naam. Geschikt voor een huis én voor een woontoren.",
+    "floorPlaceholder": "bijv. Begane grond of 12e verdieping",
+    "addFloor": "Toevoegen",
+    "removeFloor": "Verwijderen",
+    "addFloorsRange": "Voeg 1e t/m",
+    "addFloorsRangeSuffix": "verdieping toe",
+    "rooms": "Ruimtes",
+    "noRoomsOnFloor": "Geen ruimtes op deze verdieping.",
+    "toChecklist": "Naar checklist",
+    "backToFloors": "Terug naar verdiepingen",
+    "choose": "Kies…",
+    "saveAnswers": "Antwoorden opslaan",
+    "finish": "Opname afronden",
+    "incomplete": "Nog {n} vragen open. Vul alle zichtbare vragen in voordat je afrondt.",
+    "incompletePhotos": "Nog {n} verplichte foto’s ontbreken.",
+    "unanswered": "Nog niet beantwoord",
+    "photos": "Foto’s",
+    "photoRequired": "Verplicht",
+    "photoMissing": "Foto ontbreekt",
+    "addPhoto": "Foto maken / kiezen",
+    "takePhoto": "Foto maken",
+    "choosePhoto": "Kiezen uit galerij",
+    "photoUploading": "Uploaden…",
+    "photoAlt": "Bewijsfoto",
+    "completed": "Opname afgerond en klaar voor synchronisatie.",
+    "downloadDossier": "Dossier JSON downloaden"
+  },
+  "dossier": {
+    "title": "Dossier",
+    "backToDashboard": "Terug naar dashboard",
+    "edit": "Aanpassen",
+    "inspections": "Inspecties",
+    "inspection": "Inspectie",
+    "startedAt": "Gestart",
+    "completedAt": "Afgerond",
+    "noAnswers": "Geen antwoorden vastgelegd.",
+    "empty": "Nog geen gegevens in dit dossier."
   },
   "settings": {
     "title": "Instellingen",
     "language": "Taal",
     "theme": "Thema",
     "themePranimate": "Pranimate",
-    "themeSlate": "Slate (demo white-label)"
+    "themeSlate": "Slate (demo white-label)",
+    "password": "Wachtwoord"
   },
   "common": {
     "nl": "Nederlands",
-    "en": "English"
+    "en": "English",
+    "loading": "Laden…",
+    "yes": "Ja",
+    "no": "Nee"
   }
 }

@@ -1,9 +1,18 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { applyTheme, type ThemeId } from '@/lib/theme'
+import { useAuthStore } from '@/stores/auth'
 
 const { t, locale } = useI18n()
+const auth = useAuthStore()
+
+const password = ref('')
+const confirm = ref('')
+const submitting = ref(false)
+const message = ref<string | null>(null)
+const error = ref<string | null>(null)
 
 function setLocale(next: 'nl' | 'en') {
   locale.value = next
@@ -12,6 +21,30 @@ function setLocale(next: 'nl' | 'en') {
 
 function setTheme(theme: ThemeId) {
   applyTheme(theme)
+}
+
+async function onChangePassword() {
+  message.value = null
+  error.value = null
+  if (password.value.length < 8) {
+    error.value = t('auth.passwordTooShort')
+    return
+  }
+  if (password.value !== confirm.value) {
+    error.value = t('auth.passwordMismatch')
+    return
+  }
+  submitting.value = true
+  try {
+    await auth.updatePassword(password.value)
+    password.value = ''
+    confirm.value = ''
+    message.value = t('auth.passwordUpdated')
+  } catch {
+    error.value = auth.error
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -25,16 +58,10 @@ function setTheme(theme: ThemeId) {
           {{ t('settings.language') }}
         </p>
         <div class="flex flex-wrap gap-3">
-          <Button
-            :variant="locale === 'nl' ? 'brand' : 'outline'"
-            @click="setLocale('nl')"
-          >
+          <Button :variant="locale === 'nl' ? 'brand' : 'outline'" @click="setLocale('nl')">
             {{ t('common.nl') }}
           </Button>
-          <Button
-            :variant="locale === 'en' ? 'brand' : 'outline'"
-            @click="setLocale('en')"
-          >
+          <Button :variant="locale === 'en' ? 'brand' : 'outline'" @click="setLocale('en')">
             {{ t('common.en') }}
           </Button>
         </div>
@@ -54,5 +81,41 @@ function setTheme(theme: ThemeId) {
         </div>
       </div>
     </div>
+
+    <form
+      class="max-w-lg space-y-4 rounded-xl border border-border bg-card p-5"
+      @submit.prevent="onChangePassword"
+    >
+      <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        {{ t('settings.password') }}
+      </p>
+      <label class="block space-y-2">
+        <span class="text-sm font-medium">{{ t('auth.newPassword') }}</span>
+        <input
+          v-model="password"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          class="min-h-12 w-full rounded-lg border border-input bg-background px-4"
+        />
+      </label>
+      <label class="block space-y-2">
+        <span class="text-sm font-medium">{{ t('auth.confirmPassword') }}</span>
+        <input
+          v-model="confirm"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          class="min-h-12 w-full rounded-lg border border-input bg-background px-4"
+        />
+      </label>
+      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+      <p v-if="message" class="text-sm text-success">{{ message }}</p>
+      <Button type="submit" :disabled="submitting">
+        {{ submitting ? t('auth.savingPassword') : t('auth.savePassword') }}
+      </Button>
+    </form>
   </section>
 </template>

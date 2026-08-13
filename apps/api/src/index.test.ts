@@ -7,8 +7,8 @@ describe('API health', () => {
     const res = await app.request('/api/health', undefined, {
       PHOTOS_BUCKET: {} as R2Bucket,
       SUPABASE_URL: 'http://localhost',
-      SUPABASE_ANON_KEY: 'test',
-      SUPABASE_SERVICE_ROLE_KEY: 'test',
+      SUPABASE_PUBLISHABLE_KEY: 'test',
+      SUPABASE_SECRET_KEY: 'test',
       CORS_ORIGIN: '*',
     })
 

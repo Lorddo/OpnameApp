@@ -2,7 +2,7 @@
 
 **Status:** productvoorstel / uitwerking BBMI-checklist  
 **Laatst bijgewerkt:** 2026-08-12  
-**Bron van waarheid (BBMI):** [`templates/bbmi/0.1.0.json`](../../templates/bbmi/0.1.0.json)
+**Bron van waarheid (BBMI):** [`templates/bbmi/bbmi-0.1.0.json`](../../templates/bbmi/bbmi-0.1.0.json)
 
 Templates beschrijven **welke data nodig is** en **wanneer** een vraag zichtbaar/verplicht is. Ze bevatten geen opname-data. Zie ook [ADR-004](./decisions/ADR-004-config-driven-platform.md) en [ADR-009](./decisions/ADR-009-template-version-pinning.md).
 

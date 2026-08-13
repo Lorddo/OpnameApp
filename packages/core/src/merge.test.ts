@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateCompletenessPerTemplate, mergeTemplates } from './merge.js'
+import {
+  evaluateCompletenessPerTemplate,
+  evaluateMergedRoomCompleteness,
+  mergeTemplates,
+} from './merge.js'
 import type { InspectionTemplate } from './template-schema.js'
 
 const bbmi: InspectionTemplate = {
@@ -95,5 +99,14 @@ describe('mergeTemplates', () => {
     )
     expect(perTemplate.bbmi?.isComplete).toBe(true)
     expect(perTemplate.wws?.isComplete).toBe(true)
+  })
+
+  it('treats unanswered merged questions as incomplete', () => {
+    const merged = mergeTemplates([bbmi, wws])
+    const result = evaluateMergedRoomCompleteness(merged, 'serre', { geisoleerd: true })
+    expect(result.isComplete).toBe(false)
+    expect(result.missingAttributeKeys).toEqual(
+      expect.arrayContaining(['room.klimaatregeling', 'room.daglichtMin05m2']),
+    )
   })
 })
