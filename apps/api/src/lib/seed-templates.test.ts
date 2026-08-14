@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { listVisibleQuestions, parseInspectionTemplate } from '@opnameapp/core'
-import bbmiTemplate from '../seed/bbmi-0.1.0.json'
+import bbmiTemplate from '../seed/bbmi-1.0.0.json'
 import { templateQuestionSignature } from './seed-templates.js'
 
 describe('templateQuestionSignature', () => {

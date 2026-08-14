@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clearHiddenAnswers, evaluateRoomCompleteness, listVisibleQuestions } from './completeness.js'
+import { clearHiddenAnswers, evaluateRoomCompleteness, evaluateTemplateCompleteness, listVisibleQuestions } from './completeness.js'
 import type { InspectionTemplate } from './template-schema.js'
 
 const template: InspectionTemplate = {
@@ -78,6 +78,19 @@ describe('completeness', () => {
       balkenVervangbaarDoorMuren: true,
     })
     expect(cleared).toEqual({ plafondHoogteMin190: true })
+  })
+
+  it('scores only rooms that exist on the property for a pinned template', () => {
+    const result = evaluateTemplateCompleteness(
+      template,
+      [
+        { id: 'r1', roomType: 'emptyRoom' },
+        { id: 'r2', roomType: 'unknownType' },
+      ],
+      {},
+    )
+    expect(result.rooms.map((row) => row.roomId)).toEqual(['r1'])
+    expect(result.isComplete).toBe(true)
   })
 })
 

@@ -223,7 +223,7 @@
         {
           "attributeKey": "room.balkenVervangbaarDoorMuren",
           "sortOrder": 2,
-          "photoRequired": true,
+          "photoRequired": false,
           "showWhen": "room.this.plafondHoogteMin190 = false"
         }
       ]

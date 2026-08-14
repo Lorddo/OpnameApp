@@ -4,9 +4,10 @@ import { requireAuth } from '../middleware/auth.js'
 import { dbForAuth, assertPropertyAccess } from '../lib/db.js'
 import { ApiError } from '../lib/errors.js'
 import {
-  evaluateRoomCompleteness,
+  evaluateTemplateCompleteness,
   parseInspectionTemplate,
   type InspectionTemplate,
+  type RoomAnswers,
 } from '@opnameapp/core'
 
 export const exportsRoutes = new Hono<AppEnv>()
@@ -55,13 +56,17 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
     if (!templateRow?.config) continue
 
     const template = parseInspectionTemplate(templateRow.config) as InspectionTemplate
-    const roomCompleteness = (rooms.data ?? []).map((room) => {
-      const answers: Record<string, unknown> = {}
+    const answersByRoomId: Record<string, RoomAnswers> = {}
+    const photosByRoomId: Record<string, Record<string, number>> = {}
+    for (const room of rooms.data ?? []) {
+      const answers: RoomAnswers = {}
       for (const obs of observations.data ?? []) {
         if (obs.subject_id !== room.id) continue
         const key = String(obs.attribute_key).split('.')[1]
         if (key) answers[key] = obs.value
       }
+      answersByRoomId[room.id as string] = answers
+
       const photosByAttribute: Record<string, number> = {}
       for (const photo of photos.data ?? []) {
         if (!photo.observation_id) continue
@@ -70,12 +75,20 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
         const attr = String(obs.attribute_key)
         photosByAttribute[attr] = (photosByAttribute[attr] ?? 0) + 1
       }
-      return evaluateRoomCompleteness(template, room.room_type, answers, photosByAttribute)
-    })
+      photosByRoomId[room.id as string] = photosByAttribute
+    }
 
     completeness[`${pin.template_key}@${pin.template_version}`] = {
       inspectionId: pin.inspectionId,
-      rooms: roomCompleteness,
+      ...evaluateTemplateCompleteness(
+        template,
+        (rooms.data ?? []).map((room) => ({
+          id: room.id as string,
+          roomType: room.room_type as string,
+        })),
+        answersByRoomId,
+        photosByRoomId,
+      ),
     }
   }
 

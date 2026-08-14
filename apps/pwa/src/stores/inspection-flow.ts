@@ -22,6 +22,7 @@ import type { InspectionTemplate } from '@opnameapp/core'
 import {
   clearHiddenAnswers,
   evaluateMergedRoomCompleteness,
+  evaluateTemplateCompleteness,
   listMergedVisibleQuestions,
   mergeTemplates,
   parseInspectionTemplate,
@@ -162,6 +163,19 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       rooms.value.length > 0 &&
       missingAnswerCount.value === 0 &&
       missingPhotoCount.value === 0,
+  )
+
+  const templateCompleteness = computed(() =>
+    templateConfigs.value.map((tpl) =>
+      evaluateTemplateCompleteness(
+        tpl,
+        rooms.value.map((room) => ({ id: room.id, roomType: room.roomType })),
+        answersByRoom.value,
+        Object.fromEntries(
+          rooms.value.map((room) => [room.id, photosByAttributeForRoom(room.id)] as const),
+        ),
+      ),
+    ),
   )
 
   function missingKeysForRoom(roomId: string) {
@@ -789,6 +803,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     missingAnswerCount,
     missingPhotoCount,
     answersComplete,
+    templateCompleteness,
     questionsForRoom,
     missingKeysForRoom,
     missingPhotoKeysForRoom,

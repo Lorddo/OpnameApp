@@ -111,6 +111,10 @@
     "inspection": "Inspectie",
     "startedAt": "Gestart",
     "completedAt": "Afgerond",
+    "completeness": "Compleetheid",
+    "complete": "Compleet",
+    "incomplete": "Onvolledig",
+    "incompleteSummary": "{answers} vragen open, {photos} foto’s",
     "noAnswers": "Geen antwoorden vastgelegd.",
     "empty": "Nog geen gegevens in dit dossier."
   },

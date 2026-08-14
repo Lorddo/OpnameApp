@@ -1,5 +1,6 @@
 import { parseInspectionTemplate, type InspectionTemplate } from '@opnameapp/core'
-import bbmiTemplate from '../seed/bbmi-0.1.0.json'
+import bbmiV010 from '../seed/bbmi-0.1.0.json'
+import bbmiV100 from '../seed/bbmi-1.0.0.json'
 import type { Env } from '../env.js'
 import { createServiceClient } from './supabase.js'
 
@@ -38,14 +39,24 @@ function attributeRows(parsed: InspectionTemplate) {
   }))
 }
 
+type SeedMode = 'insert-only' | 'upsert-if-changed'
+
 /**
- * Keep the bundled BBMI 0.1.0 row in sync with git.
- * Insert-only seeding left staging on an old config without showWhen.
- * Bump published_at only when the question graph actually changes, so pull cursors move.
+ * 0.1.0 is insert-only so already-pinned inspections keep their snapshot.
+ * 1.0.0 is the published BBMI and may be updated while staging still iterates.
  */
-export async function ensureSeeded(env: Env) {
+const SEEDED_TEMPLATES: Array<{ json: unknown; mode: SeedMode }> = [
+  { json: bbmiV010, mode: 'insert-only' },
+  { json: bbmiV100, mode: 'upsert-if-changed' },
+]
+
+async function seedTemplate(
+  env: Env,
+  json: unknown,
+  mode: SeedMode,
+): Promise<InspectionTemplate> {
   const service = createServiceClient(env)
-  const parsed = parseInspectionTemplate(bbmiTemplate)
+  const parsed = parseInspectionTemplate(json)
   const { data } = await service
     .from('inspection_templates')
     .select('id, config')
@@ -65,11 +76,12 @@ export async function ensureSeeded(env: Env) {
       published_at: new Date().toISOString(),
     })
     await service.from('attributes').upsert(rows)
-    return
+    return parsed
   }
 
+  if (mode === 'insert-only') return parsed
   if (templateQuestionSignature(data.config) === templateQuestionSignature(parsed)) {
-    return
+    return parsed
   }
 
   await service
@@ -83,4 +95,11 @@ export async function ensureSeeded(env: Env) {
     .eq('id', data.id)
 
   await service.from('attributes').upsert(rows)
+  return parsed
+}
+
+export async function ensureSeeded(env: Env) {
+  for (const entry of SEEDED_TEMPLATES) {
+    await seedTemplate(env, entry.json, entry.mode)
+  }
 }

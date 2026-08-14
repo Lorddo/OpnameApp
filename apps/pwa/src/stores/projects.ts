@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { apiFetch } from '@/lib/api'
 import { db } from '@/db'
 import { purgePropertyLocal } from '@/db/repository'
@@ -151,11 +151,34 @@ export const useProjectsStore = defineStore('projects', () => {
     }
   }
 
+  const publishedTemplates = computed(() => {
+    const latest = new Map<string, TemplateSummary>()
+    for (const tpl of templates.value) {
+      const existing = latest.get(tpl.template_key)
+      if (
+        !existing ||
+        tpl.version.localeCompare(existing.version, undefined, { numeric: true }) > 0
+      ) {
+        latest.set(tpl.template_key, tpl)
+      }
+    }
+    return [...latest.values()]
+  })
+
   async function removeLocalProperty(propertyId: string) {
     await purgePropertyLocal(propertyId)
     inspections.value = inspections.value.filter((i) => i.property_id !== propertyId)
     properties.value = properties.value.filter((p) => p.id !== propertyId)
   }
 
-  return { properties, inspections, templates, loading, error, loadAll, removeLocalProperty }
+  return {
+    properties,
+    inspections,
+    templates,
+    publishedTemplates,
+    loading,
+    error,
+    loadAll,
+    removeLocalProperty,
+  }
 })

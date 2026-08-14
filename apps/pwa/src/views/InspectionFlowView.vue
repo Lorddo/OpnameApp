@@ -12,7 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
 const flow = useInspectionFlowStore()
-const { templates } = storeToRefs(projects)
+const { publishedTemplates } = storeToRefs(projects)
 const {
   step,
   postcode,
@@ -32,6 +32,7 @@ const {
   answersComplete,
   missingAnswerCount,
   missingPhotoCount,
+  templateCompleteness,
 } = storeToRefs(flow)
 
 const busy = ref(false)
@@ -49,7 +50,7 @@ onMounted(async () => {
     // Keep coarse/mobile heuristic.
   }
 
-  if (!templates.value.length) await projects.loadAll()
+  if (!publishedTemplates.value.length) await projects.loadAll()
 
   const resumeId = typeof route.params.inspectionId === 'string' ? route.params.inspectionId : null
   if (resumeId) {
@@ -59,11 +60,11 @@ onMounted(async () => {
     return
   }
 
-  if (!selectedTemplates.value.length && templates.value[0]) {
+  if (!selectedTemplates.value.length && publishedTemplates.value[0]) {
     selectedTemplates.value = [
       {
-        templateKey: templates.value[0].template_key,
-        templateVersion: templates.value[0].version,
+        templateKey: publishedTemplates.value[0].template_key,
+        templateVersion: publishedTemplates.value[0].version,
       },
     ]
   }
@@ -241,7 +242,7 @@ function roomTypeLabel(roomTypeId: string) {
       <div class="space-y-2">
         <p class="text-sm font-medium">{{ t('flow.templates') }}</p>
         <label
-          v-for="tpl in templates"
+          v-for="tpl in publishedTemplates"
           :key="`${tpl.template_key}@${tpl.version}`"
           class="flex min-h-12 items-center gap-3 rounded-lg border border-border px-4"
         >
@@ -562,6 +563,22 @@ function roomTypeLabel(roomTypeId: string) {
     <!-- Step 4 -->
     <div v-else-if="!loading" class="space-y-4 rounded-xl border border-border bg-card p-5">
       <p class="text-lg font-semibold text-success">{{ t('flow.completed') }}</p>
+      <ul v-if="templateCompleteness.length" class="space-y-2">
+        <li v-for="row in templateCompleteness" :key="`${row.templateKey}@${row.templateVersion}`">
+          <span class="font-medium">{{ row.templateKey.toUpperCase() }} {{ row.templateVersion }}</span>
+          <span class="text-muted-foreground">
+            —
+            {{
+              row.isComplete
+                ? t('dossier.complete')
+                : t('dossier.incompleteSummary', {
+                    answers: row.missingAnswerCount,
+                    photos: row.missingPhotoCount,
+                  })
+            }}
+          </span>
+        </li>
+      </ul>
       <div class="flex flex-wrap gap-3">
         <Button variant="brand" @click="goDossier">{{ t('projects.dossier') }}</Button>
         <Button variant="outline" @click="download">{{ t('flow.downloadDossier') }}</Button>

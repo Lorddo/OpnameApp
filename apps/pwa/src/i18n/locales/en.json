@@ -111,6 +111,10 @@
     "inspection": "Inspection",
     "startedAt": "Started",
     "completedAt": "Completed",
+    "completeness": "Completeness",
+    "complete": "Complete",
+    "incomplete": "Incomplete",
+    "incompleteSummary": "{answers} questions open, {photos} photos",
     "noAnswers": "No answers recorded.",
     "empty": "No data in this dossier yet."
   },

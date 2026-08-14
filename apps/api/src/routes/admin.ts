@@ -172,6 +172,7 @@ const assignSchema = z.object({
     houseNumber: z.string().min(1),
     houseNumberAddition: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
+    bagId: z.string().min(1).optional().nullable(),
     homeOrgId: z.string().uuid().optional(),
   }),
   inspection: z
@@ -246,6 +247,7 @@ adminRoutes.post('/assign-inspection', async (c) => {
         house_number: body.property.houseNumber,
         house_number_addition: body.property.houseNumberAddition ?? null,
         city: body.property.city ?? null,
+        bag_id: body.property.bagId ?? null,
       },
       { onConflict: 'id' },
     )

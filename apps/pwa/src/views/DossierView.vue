@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { apiFetch, apiFetchBlob } from '@/lib/api'
 import { useInspectionFlowStore } from '@/stores/inspection-flow'
 import {
+  evaluateTemplateCompleteness,
   mergeTemplates,
   parseInspectionTemplate,
   type InspectionTemplate,
@@ -50,6 +51,21 @@ type DossierProperty = {
   house_number_addition: string | null
   city: string | null
 }
+type CompletenessRoom = {
+  roomId: string
+  isComplete: boolean
+  missingAttributeKeys?: string[]
+  missingPhotoAttributeKeys?: string[]
+}
+type CompletenessEntry = {
+  inspectionId?: string
+  templateKey: string
+  templateVersion: string
+  isComplete: boolean
+  missingAnswerCount: number
+  missingPhotoCount: number
+  rooms: CompletenessRoom[]
+}
 type DossierPayload = {
   exportedAt: string
   property: DossierProperty
@@ -59,6 +75,7 @@ type DossierPayload = {
   observations: DossierObservation[]
   facts: DossierObservation[]
   photos: DossierPhoto[]
+  completeness?: Record<string, CompletenessEntry>
 }
 
 type AnswerRow = {
@@ -299,9 +316,61 @@ const floorsWithRooms = computed(() => {
   }))
 })
 
+const completenessEntries = computed((): CompletenessEntry[] => {
+  const payload = dossier.value
+  if (!payload) return []
+  const fromApi = payload.completeness
+  if (fromApi && Object.keys(fromApi).length) return Object.values(fromApi)
+
+  return templates.value.map((tpl) => {
+    const answersByRoom: Record<string, Record<string, unknown>> = {}
+    const photosByRoom: Record<string, Record<string, number>> = {}
+    for (const room of payload.rooms) {
+      answersByRoom[room.id] = {}
+      photosByRoom[room.id] = {}
+    }
+    for (const obs of payload.observations) {
+      if (obs.subject_type !== 'room') continue
+      const key = obs.attribute_key.includes('.')
+        ? obs.attribute_key.split('.').slice(1).join('.')
+        : obs.attribute_key
+      answersByRoom[obs.subject_id] ??= {}
+      answersByRoom[obs.subject_id]![key] = obs.value
+    }
+    for (const photo of payload.photos) {
+      const obs = payload.observations.find((row) => row.id === photo.observation_id)
+      if (!obs || obs.subject_type !== 'room') continue
+      photosByRoom[obs.subject_id] ??= {}
+      photosByRoom[obs.subject_id]![obs.attribute_key] =
+        (photosByRoom[obs.subject_id]![obs.attribute_key] ?? 0) + 1
+    }
+    return evaluateTemplateCompleteness(
+      tpl,
+      payload.rooms.map((room) => ({ id: room.id, roomType: room.room_type })),
+      answersByRoom,
+      photosByRoom,
+    )
+  })
+})
+
+function roomIsComplete(roomId: string) {
+  const rows = completenessEntries.value.flatMap((entry) =>
+    entry.rooms.filter((room) => room.roomId === roomId),
+  )
+  if (!rows.length) return true
+  return rows.every((room) => room.isComplete)
+}
+
 function download() {
   if (!dossier.value) return
-  const blob = new Blob([JSON.stringify(dossier.value, null, 2)], { type: 'application/json' })
+  const completeness = Object.fromEntries(
+    completenessEntries.value.map((entry) => [
+      `${entry.templateKey}@${entry.templateVersion}`,
+      entry,
+    ]),
+  )
+  const payload = { ...dossier.value, completeness }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -383,6 +452,25 @@ function statusLabel(status: string) {
             {{ t('dossier.empty') }}
           </li>
         </ul>
+        <div v-if="completenessEntries.length" class="mt-4 space-y-2 border-t border-border pt-4">
+          <h3 class="text-sm font-semibold">{{ t('dossier.completeness') }}</h3>
+          <p
+            v-for="row in completenessEntries"
+            :key="`${row.templateKey}@${row.templateVersion}`"
+            class="text-sm"
+          >
+            <span class="font-medium">{{ row.templateKey.toUpperCase() }} {{ row.templateVersion }}</span>
+            —
+            {{
+              row.isComplete
+                ? t('dossier.complete')
+                : t('dossier.incompleteSummary', {
+                    answers: row.missingAnswerCount,
+                    photos: row.missingPhotoCount,
+                  })
+            }}
+          </p>
+        </div>
       </div>
 
       <div
@@ -397,8 +485,14 @@ function statusLabel(status: string) {
             :key="room.id"
             class="border-t border-border pt-4 first:border-t-0 first:pt-0"
           >
-            <h3 class="mb-3 text-lg font-semibold">
-              {{ room.label || roomTypeLabel(room.room_type) }}
+            <h3 class="mb-3 flex flex-wrap items-baseline gap-2 text-lg font-semibold">
+              <span>{{ room.label || roomTypeLabel(room.room_type) }}</span>
+              <span
+                class="text-sm font-normal"
+                :class="roomIsComplete(room.id) ? 'text-success' : 'text-destructive'"
+              >
+                {{ roomIsComplete(room.id) ? t('dossier.complete') : t('dossier.incomplete') }}
+              </span>
             </h3>
             <dl class="space-y-3">
               <div

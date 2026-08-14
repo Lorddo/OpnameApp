@@ -38,9 +38,6 @@ Thumbs.db
 # vite-plugin-pwa generated (dev)
 apps/pwa/dev-dist/
 
-# Cursor local/config — keep docs in sync, ignore the rest
-.cursor/*
-!.cursor/docs/
-!.cursor/docs/**
-!.cursor/plans/
-!.cursor/plans/**
+# Cursor / agent local
+.cursor/
+.agents/

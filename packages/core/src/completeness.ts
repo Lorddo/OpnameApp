@@ -109,6 +109,53 @@ export function evaluateRoomCompleteness(
   }
 }
 
+export interface RoomCompletenessRow extends RoomCompleteness {
+  roomId: string
+}
+
+export interface TemplateCompleteness {
+  templateKey: string
+  templateVersion: string
+  rooms: RoomCompletenessRow[]
+  missingAnswerCount: number
+  missingPhotoCount: number
+  isComplete: boolean
+}
+
+/** Completeness for one pinned template over the rooms that exist on the property. */
+export function evaluateTemplateCompleteness(
+  template: InspectionTemplate,
+  rooms: Array<{ id: string; roomType: string }>,
+  answersByRoomId: Record<string, RoomAnswers>,
+  photosByRoomId: Record<string, Record<string, number>> = {},
+): TemplateCompleteness {
+  const knownTypes = new Set(template.roomTypes.map((rt) => rt.id))
+  const roomRows: RoomCompletenessRow[] = []
+
+  for (const room of rooms) {
+    if (!knownTypes.has(room.roomType)) continue
+    const result = evaluateRoomCompleteness(
+      template,
+      room.roomType,
+      answersByRoomId[room.id] ?? {},
+      photosByRoomId[room.id] ?? {},
+    )
+    roomRows.push({ ...result, roomId: room.id })
+  }
+
+  const missingAnswerCount = roomRows.reduce((n, row) => n + row.missingAttributeKeys.length, 0)
+  const missingPhotoCount = roomRows.reduce((n, row) => n + row.missingPhotoAttributeKeys.length, 0)
+
+  return {
+    templateKey: template.id,
+    templateVersion: template.version,
+    rooms: roomRows,
+    missingAnswerCount,
+    missingPhotoCount,
+    isComplete: missingAnswerCount === 0 && missingPhotoCount === 0,
+  }
+}
+
 /**
  * Clear answers that are no longer visible under the current showWhen rules.
  * Returns a new answers object (does not mutate input).
