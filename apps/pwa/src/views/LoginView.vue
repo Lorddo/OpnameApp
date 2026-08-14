@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth'
 
@@ -28,6 +29,7 @@ async function onSubmit() {
 <template>
   <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-4 py-10">
     <div>
+      <AppLogo :size="64" decorative class="mb-4" />
       <h1 class="text-3xl font-bold text-brand">{{ t('app.name') }}</h1>
       <p class="mt-2 text-muted-foreground">{{ t('login.subtitle') }}</p>
     </div>

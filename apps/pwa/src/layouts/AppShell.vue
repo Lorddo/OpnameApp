@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
@@ -32,13 +33,16 @@ async function onSyncNow() {
       <div
         class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6"
       >
-        <div>
-          <p class="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {{ t('app.name') }}
-          </p>
-          <p class="text-sm text-brand-foreground/80 sm:text-base">
-            {{ t('app.tagline') }}
-          </p>
+        <div class="flex min-w-0 items-center gap-3">
+          <AppLogo :size="48" decorative class="ring-1 ring-white/25" />
+          <div class="min-w-0">
+            <p class="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              {{ t('app.name') }}
+            </p>
+            <p class="text-sm text-brand-foreground/80 sm:text-base">
+              {{ t('app.tagline') }}
+            </p>
+          </div>
         </div>
         <nav class="flex items-center gap-2">
           <RouterLink

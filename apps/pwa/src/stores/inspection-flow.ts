@@ -27,8 +27,16 @@ import {
   parseInspectionTemplate,
 } from '@opnameapp/core'
 
+const METERKAST_ROOM_TYPE_ID = 'meterkast'
+
 function uuid() {
   return newId()
+}
+
+function compareRoomTypeOrder(a: { id: string; label: string }, b: { id: string; label: string }) {
+  if (a.id === METERKAST_ROOM_TYPE_ID && b.id !== METERKAST_ROOM_TYPE_ID) return -1
+  if (b.id === METERKAST_ROOM_TYPE_ID && a.id !== METERKAST_ROOM_TYPE_ID) return 1
+  return a.label.localeCompare(b.label, 'nl', { sensitivity: 'base' })
 }
 
 function obsMapKey(roomId: string, attributeKey: string) {
@@ -83,11 +91,28 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     templateConfigs.value.length ? mergeTemplates(templateConfigs.value) : null,
   )
 
+  const sortedRoomTypes = computed(() =>
+    [...(merged.value?.roomTypes ?? [])].sort(compareRoomTypeOrder),
+  )
+
   const activeFloor = computed(() => floors.value.find((f) => f.id === activeFloorId.value) ?? null)
 
-  const roomsOnActiveFloor = computed(() =>
-    rooms.value.filter((r) => r.floorId === activeFloorId.value),
-  )
+  const roomsOnActiveFloor = computed(() => {
+    const labels = new Map(
+      (merged.value?.roomTypes ?? []).map((rt) => [rt.id, rt.label] as const),
+    )
+    return rooms.value
+      .map((room, index) => ({ room, index }))
+      .filter(({ room }) => room.floorId === activeFloorId.value)
+      .sort((a, b) => {
+        const byType = compareRoomTypeOrder(
+          { id: a.room.roomType, label: labels.get(a.room.roomType) ?? a.room.roomType },
+          { id: b.room.roomType, label: labels.get(b.room.roomType) ?? b.room.roomType },
+        )
+        return byType !== 0 ? byType : a.index - b.index
+      })
+      .map(({ room }) => room)
+  })
 
   function photosByAttributeForRoom(roomId: string): Record<string, number> {
     const counts: Record<string, number> = {}
@@ -485,25 +510,21 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     return floors.value.some((f) => f.label.toLowerCase() === label.toLowerCase())
   }
 
-  function numberedFloorLabel(n: number) {
-    return `${n}e verdieping`
-  }
-
   async function addFloor(label: string) {
     const trimmed = label.trim()
     if (!propertyId.value || !trimmed || hasFloorLabel(trimmed)) return
+    const isFirstFloor = floors.value.length === 0
     const row = await addFloorLocal({
       propertyId: propertyId.value,
       label: trimmed,
       sortOrder: floors.value.length,
     })
     floors.value.push({ id: row.id, label: row.label, sortOrder: row.sortOrder })
-  }
-
-  async function addNumberedFloors(upto: number) {
-    const max = Math.min(Math.max(Math.trunc(upto), 0), 80)
-    for (let i = 1; i <= max; i++) {
-      await addFloor(numberedFloorLabel(i))
+    if (
+      isFirstFloor &&
+      merged.value?.roomTypes.some((rt) => rt.id === METERKAST_ROOM_TYPE_ID)
+    ) {
+      await addRoom(row.id, METERKAST_ROOM_TYPE_ID)
     }
   }
 
@@ -761,6 +782,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     uploadingPhotoKey,
     error,
     merged,
+    sortedRoomTypes,
     activeFloor,
     roomsOnActiveFloor,
     roomCompleteness,
@@ -778,9 +800,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     startInspection,
     resumeInspection,
     hasFloorLabel,
-    numberedFloorLabel,
     addFloor,
-    addNumberedFloors,
     removeFloor,
     roomsOfType,
     toggleRoomType,

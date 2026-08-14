@@ -3,34 +3,10 @@ import type { AppEnv } from '../index.js'
 import { requireAuth } from '../middleware/auth.js'
 import { dbForAuth } from '../lib/db.js'
 import { ApiError } from '../lib/errors.js'
-import { createServiceClient } from '../lib/supabase.js'
-import bbmiTemplate from '../seed/bbmi-0.1.0.json'
-import { parseInspectionTemplate } from '@opnameapp/core'
+import { ensureSeeded } from '../lib/seed-templates.js'
 
 export const syncRoutes = new Hono<AppEnv>()
 syncRoutes.use('*', requireAuth)
-
-async function ensureSeeded(env: AppEnv['Bindings']) {
-  const service = createServiceClient(env)
-  const parsed = parseInspectionTemplate(bbmiTemplate)
-  const { data } = await service
-    .from('inspection_templates')
-    .select('id')
-    .eq('template_key', parsed.id)
-    .eq('version', parsed.version)
-    .maybeSingle()
-
-  if (!data) {
-    await service.from('inspection_templates').insert({
-      template_key: parsed.id,
-      version: parsed.version,
-      label: parsed.label,
-      locale: parsed.locale,
-      config: parsed,
-      published_at: new Date().toISOString(),
-    })
-  }
-}
 
 /**
  * Incremental pull for offline clients.

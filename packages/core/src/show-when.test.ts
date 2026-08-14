@@ -38,10 +38,11 @@ describe('parseShowWhen', () => {
 })
 
 describe('evaluateShowWhen', () => {
-  it('evaluates room.this booleans', () => {
-    const ast = parseShowWhen('room.this.plafondHoogteMin190 = false')
-    expect(evaluateShowWhen(ast, { roomAnswers: { plafondHoogteMin190: false } })).toBe(true)
-    expect(evaluateShowWhen(ast, { roomAnswers: { plafondHoogteMin190: true } })).toBe(false)
+  it('evaluates choice strings', () => {
+    const ast = parseShowWhen('room.this.toegangType = "trap"')
+    expect(evaluateShowWhen(ast, { roomAnswers: { toegangType: 'trap' } })).toBe(true)
+    expect(evaluateShowWhen(ast, { roomAnswers: { toegangType: 'vlizo' } })).toBe(false)
+    expect(evaluateShowWhen(ast, { roomAnswers: {} })).toBe(false)
   })
 
   it('throws a clear error for unsupported selectors', () => {

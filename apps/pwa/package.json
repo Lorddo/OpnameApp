@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "preview:offline": "pnpm build && vite preview --host 127.0.0.1 --port 4173",
     "deploy": "pnpm build && wrangler deploy",
+    "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "typecheck": "vue-tsc -p tsconfig.app.json --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test"
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250812.0",
     "@playwright/test": "^1.62.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.11",
     "@types/uuid": "^11.0.0",
     "@vitejs/plugin-vue": "^6.0.1",

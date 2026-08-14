@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AppLogo from '@/components/AppLogo.vue'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 
@@ -76,6 +77,7 @@ onMounted(async () => {
 
 <template>
   <main class="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-3 px-6">
+    <AppLogo :size="56" decorative class="mb-2" />
     <h1 class="text-2xl font-bold">{{ t('auth.callbackTitle') }}</h1>
     <p class="text-muted-foreground">{{ message }}</p>
     <p v-if="error" class="text-destructive">{{ error }}</p>

@@ -22,6 +22,7 @@ const {
   floors,
   rooms,
   merged,
+  sortedRoomTypes,
   activeFloorId,
   roomsOnActiveFloor,
   saving,
@@ -35,7 +36,6 @@ const {
 
 const busy = ref(false)
 const newFloorLabel = ref('')
-const floorRangeTo = ref<number | null>(null)
 const canUseCamera = ref(false)
 
 onMounted(async () => {
@@ -107,16 +107,6 @@ async function onAddFloor() {
   try {
     await flow.addFloor(label)
     newFloorLabel.value = ''
-  } finally {
-    busy.value = false
-  }
-}
-
-async function onAddFloorRange() {
-  if (!floorRangeTo.value) return
-  busy.value = true
-  try {
-    await flow.addNumberedFloors(floorRangeTo.value)
   } finally {
     busy.value = false
   }
@@ -294,29 +284,6 @@ function roomTypeLabel(roomTypeId: string) {
             {{ t('flow.addFloor') }}
           </Button>
         </form>
-        <form
-          class="mt-3 flex flex-wrap items-center gap-2"
-          @submit.prevent="onAddFloorRange"
-        >
-          <span class="text-sm text-muted-foreground">{{ t('flow.addFloorsRange') }}</span>
-          <input
-            v-model.number="floorRangeTo"
-            type="number"
-            min="1"
-            max="80"
-            class="h-12 w-20 rounded-lg border border-input px-3 text-center"
-            :disabled="busy || saving"
-          />
-          <span class="text-sm text-muted-foreground">{{ t('flow.addFloorsRangeSuffix') }}</span>
-          <Button
-            type="submit"
-            variant="outline"
-            size="sm"
-            :disabled="busy || saving || !floorRangeTo || floorRangeTo < 1"
-          >
-            {{ t('flow.addFloor') }}
-          </Button>
-        </form>
         <ul v-if="floors.length" class="mt-4 space-y-2">
           <li
             v-for="floor in floors"
@@ -345,7 +312,7 @@ function roomTypeLabel(roomTypeId: string) {
         <p class="mb-2 text-sm text-muted-foreground">{{ t('flow.rooms') }}</p>
         <div class="space-y-2">
           <div
-            v-for="rt in merged?.roomTypes ?? []"
+            v-for="rt in sortedRoomTypes"
             :key="rt.id"
             class="flex min-h-12 items-center gap-3 rounded-lg border border-border px-4"
           >

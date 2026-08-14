@@ -117,6 +117,20 @@
       "label": "Bevindt de ruimte zich in een volledig afsluitbaar complex?",
       "answerType": "boolean",
       "helpText": "Bevindt zich in een volledig van de buitenwereld af te sluiten complex."
+    },
+    "room.binnenHoofdobject": {
+      "answerScope": "room",
+      "questionKey": "binnenHoofdobject",
+      "label": "Bevindt de kast zich binnen het hoofdobject?",
+      "answerType": "boolean",
+      "helpText": "De kast of berging ligt binnen het hoofdobject."
+    },
+    "room.directVerbondenWoning": {
+      "answerScope": "room",
+      "questionKey": "directVerbondenWoning",
+      "label": "Is de kast direct verbonden aan de woning/appartement?",
+      "answerType": "boolean",
+      "helpText": "Direct verbonden aan de woning of het appartement."
     }
   },
   "roomTypes": [
@@ -133,13 +147,37 @@
       ]
     },
     {
+      "id": "bergingKastAppartement",
+      "label": "Berging/kast (appartement)",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        { "attributeKey": "room.binnenHoofdobject", "sortOrder": 1, "photoRequired": false },
+        {
+          "attributeKey": "room.directVerbondenWoning",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.binnenHoofdobject = false"
+        }
+      ]
+    },
+    {
       "id": "serre",
       "label": "Serre",
       "allowMultiplePerFloor": true,
       "questions": [
         { "attributeKey": "room.afgeslotenRuimte", "sortOrder": 1, "photoRequired": false },
-        { "attributeKey": "room.geisoleerd", "sortOrder": 2, "photoRequired": false },
-        { "attributeKey": "room.klimaatregeling", "sortOrder": 3, "photoRequired": false }
+        {
+          "attributeKey": "room.geisoleerd",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.afgeslotenRuimte = true"
+        },
+        {
+          "attributeKey": "room.klimaatregeling",
+          "sortOrder": 3,
+          "photoRequired": false,
+          "showWhen": "room.this.afgeslotenRuimte = true AND room.this.geisoleerd = true"
+        }
       ]
     },
     {
@@ -148,12 +186,18 @@
       "allowMultiplePerFloor": true,
       "questions": [
         { "attributeKey": "room.afgeslotenRuimte", "sortOrder": 1, "photoRequired": false },
-        { "attributeKey": "room.gedeeldeMuurHoofdgebouw", "sortOrder": 2, "photoRequired": false },
         {
           "attributeKey": "room.binnendoorBereikbaar",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "helpTextOverride": "Ja = binnendoor bereikbaar. Nee = alleen bereikbaar via de open lucht. Voorbeelden OI of EB: zie PDF Meetinstructies gebruiksoppervlakte woningen.",
+          "showWhen": "room.this.afgeslotenRuimte = true"
+        },
+        {
+          "attributeKey": "room.gedeeldeMuurHoofdgebouw",
           "sortOrder": 3,
           "photoRequired": false,
-          "helpTextOverride": "Ja = binnendoor bereikbaar. Nee = alleen bereikbaar via de open lucht. Voorbeelden OI of EB: zie PDF Meetinstructies gebruiksoppervlakte woningen."
+          "showWhen": "room.this.afgeslotenRuimte = true AND room.this.binnendoorBereikbaar = false"
         }
       ]
     },
@@ -216,19 +260,19 @@
           "attributeKey": "room.daglichtMin05m2",
           "sortOrder": 3,
           "photoRequired": false,
-          "showWhen": "room.this.toegangType = \"trap\""
+          "showWhen": "room.this.toegangType = \"trap\" AND room.this.oppervlak4m2Boven2m = true"
         },
         {
           "attributeKey": "room.geisoleerd",
           "sortOrder": 4,
           "photoRequired": false,
-          "showWhen": "room.this.toegangType = \"trap\""
+          "showWhen": "room.this.toegangType = \"trap\" AND room.this.oppervlak4m2Boven2m = true AND room.this.daglichtMin05m2 = true"
         },
         {
           "attributeKey": "room.klimaatregeling",
           "sortOrder": 5,
           "photoRequired": false,
-          "showWhen": "room.this.toegangType = \"trap\""
+          "showWhen": "room.this.toegangType = \"trap\" AND room.this.oppervlak4m2Boven2m = true AND room.this.daglichtMin05m2 = true AND room.this.geisoleerd = true"
         }
       ]
     },
@@ -248,7 +292,7 @@
           "attributeKey": "room.klimaatregeling",
           "sortOrder": 3,
           "photoRequired": false,
-          "showWhen": "room.this.toegankelijkVoorAuto = false"
+          "showWhen": "room.this.toegankelijkVoorAuto = false AND room.this.geisoleerd = true"
         }
       ]
     },
