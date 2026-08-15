@@ -181,3 +181,62 @@ propertiesRoutes.delete('/:id/rooms/:roomId', async (c) => {
   throwIfDbError(error, 400)
   return c.json({ ok: true })
 })
+
+const assetSchema = z.object({
+  id: z.string().uuid().optional(),
+  floorId: z.string().uuid().optional().nullable(),
+  assetType: z.string().min(1),
+  label: z.string().optional().nullable(),
+  sortOrder: z.number().int().default(0),
+})
+
+propertiesRoutes.post('/:id/assets', async (c) => {
+  const auth = c.get('auth')!
+  assertPwaWrite(auth)
+  const db = dbForAuth(c.env, auth)
+  const propertyId = c.req.param('id')
+  await assertPropertyAccess(db, auth, propertyId)
+  const body = assetSchema.parse(await c.req.json())
+
+  if (body.floorId) {
+    const { data: floor, error: floorError } = await db
+      .from('floors')
+      .select('id')
+      .eq('id', body.floorId)
+      .eq('property_id', propertyId)
+      .maybeSingle()
+    throwIfDbError(floorError)
+    if (!floor) {
+      throw new ApiError(400, 'invalid_floor', 'floor_id must belong to the same property')
+    }
+  }
+
+  const { data, error } = await db
+    .from('assets')
+    .insert({
+      id: body.id,
+      property_id: propertyId,
+      floor_id: body.floorId ?? null,
+      asset_type: body.assetType,
+      label: body.label ?? null,
+      sort_order: body.sortOrder,
+    })
+    .select('*')
+    .single()
+
+  throwIfDbError(error, 400)
+  return c.json({ asset: data }, 201)
+})
+
+propertiesRoutes.delete('/:id/assets/:assetId', async (c) => {
+  const auth = c.get('auth')!
+  assertPwaWrite(auth)
+  const db = dbForAuth(c.env, auth)
+  const propertyId = c.req.param('id')
+  const assetId = c.req.param('assetId')
+  await assertPropertyAccess(db, auth, propertyId)
+
+  const { error } = await db.from('assets').delete().eq('id', assetId).eq('property_id', propertyId)
+  throwIfDbError(error, 400)
+  return c.json({ ok: true })
+})

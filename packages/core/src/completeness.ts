@@ -1,4 +1,4 @@
-import type { InspectionTemplate, QuestionBinding, RoomType } from './template-schema.js'
+import type { AssetType, InspectionTemplate, QuestionBinding, RoomType } from './template-schema.js'
 import { attributeQuestionKey } from './attribute-key.js'
 import { isQuestionVisible, type RoomAnswers, type ShowWhenEvalContext } from './show-when.js'
 
@@ -20,6 +20,15 @@ export interface RoomCompleteness {
 
 export type PropertyCompleteness = Omit<RoomCompleteness, 'roomTypeId'>
 
+export interface AssetCompleteness {
+  assetTypeId: string
+  visibleCount: number
+  answeredCount: number
+  missingAttributeKeys: string[]
+  missingPhotoAttributeKeys: string[]
+  isComplete: boolean
+}
+
 function resolveHelpText(
   binding: QuestionBinding,
   template: InspectionTemplate,
@@ -30,8 +39,9 @@ function resolveHelpText(
 function evalContext(
   roomAnswers: RoomAnswers,
   propertyAnswers: RoomAnswers = {},
+  assetAnswers: RoomAnswers = {},
 ): ShowWhenEvalContext {
-  return { roomAnswers, propertyAnswers }
+  return { roomAnswers, propertyAnswers, assetAnswers }
 }
 
 function listVisibleBindings(
@@ -77,6 +87,23 @@ export function listVisiblePropertyQuestions(
     template,
     template.propertyQuestions ?? [],
     evalContext(roomAnswers, propertyAnswers),
+  )
+}
+
+export function listVisibleAssetQuestions(
+  template: InspectionTemplate,
+  assetTypeId: string,
+  answers: RoomAnswers,
+  propertyAnswers: RoomAnswers = {},
+): VisibleQuestion[] {
+  const assetType = (template.assetTypes ?? []).find((at) => at.id === assetTypeId)
+  if (!assetType) {
+    throw new Error(`Unknown assetType "${assetTypeId}"`)
+  }
+  return listVisibleBindings(
+    template,
+    assetType.questions,
+    evalContext({}, propertyAnswers, answers),
   )
 }
 
@@ -208,6 +235,33 @@ export function evaluateRoomCompleteness(
   return { roomTypeId, ...evaluateQuestionCompleteness(visible, answers, photosByAttributeKey) }
 }
 
+export function evaluateAssetCompleteness(
+  template: InspectionTemplate,
+  assetTypeId: string,
+  answers: RoomAnswers,
+  photosByAttributeKey: Record<string, number> = {},
+  propertyAnswers: RoomAnswers = {},
+): AssetCompleteness {
+  const assetType = (template.assetTypes ?? []).find((at) => at.id === assetTypeId)
+  if (!assetType) {
+    throw new Error(`Unknown assetType "${assetTypeId}"`)
+  }
+
+  if (assetType.questions.length === 0) {
+    return {
+      assetTypeId,
+      visibleCount: 0,
+      answeredCount: 0,
+      missingAttributeKeys: [],
+      missingPhotoAttributeKeys: [],
+      isComplete: true,
+    }
+  }
+
+  const visible = listVisibleAssetQuestions(template, assetTypeId, answers, propertyAnswers)
+  return { assetTypeId, ...evaluateQuestionCompleteness(visible, answers, photosByAttributeKey) }
+}
+
 export function evaluatePropertyCompleteness(
   template: InspectionTemplate,
   propertyAnswers: RoomAnswers = {},
@@ -230,11 +284,16 @@ export interface RoomCompletenessRow extends RoomCompleteness {
   roomId: string
 }
 
+export interface AssetCompletenessRow extends AssetCompleteness {
+  assetId: string
+}
+
 export interface TemplateCompleteness {
   templateKey: string
   templateVersion: string
   property: PropertyCompleteness
   rooms: RoomCompletenessRow[]
+  assets: AssetCompletenessRow[]
   missingAnswerCount: number
   missingPhotoCount: number
   isComplete: boolean
@@ -243,9 +302,12 @@ export interface TemplateCompleteness {
 export type TemplateCompletenessOptions = {
   propertyAnswers?: RoomAnswers
   propertyPhotos?: Record<string, number>
+  assets?: Array<{ id: string; assetType: string }>
+  answersByAssetId?: Record<string, RoomAnswers>
+  photosByAssetId?: Record<string, Record<string, number>>
 }
 
-/** Completeness for one pinned template over property questions plus rooms on the property. */
+/** Completeness for one pinned template over property questions, rooms, and created assets. */
 export function evaluateTemplateCompleteness(
   template: InspectionTemplate,
   rooms: Array<{ id: string; roomType: string }>,
@@ -274,18 +336,35 @@ export function evaluateTemplateCompleteness(
     roomRows.push({ ...result, roomId: room.id })
   }
 
+  const knownAssetTypes = new Set((template.assetTypes ?? []).map((at) => at.id))
+  const assetRows: AssetCompletenessRow[] = []
+  for (const asset of options.assets ?? []) {
+    if (!knownAssetTypes.has(asset.assetType)) continue
+    const result = evaluateAssetCompleteness(
+      template,
+      asset.assetType,
+      options.answersByAssetId?.[asset.id] ?? {},
+      options.photosByAssetId?.[asset.id] ?? {},
+      propertyAnswers,
+    )
+    assetRows.push({ ...result, assetId: asset.id })
+  }
+
   const missingAnswerCount =
     property.missingAttributeKeys.length +
-    roomRows.reduce((n, row) => n + row.missingAttributeKeys.length, 0)
+    roomRows.reduce((n, row) => n + row.missingAttributeKeys.length, 0) +
+    assetRows.reduce((n, row) => n + row.missingAttributeKeys.length, 0)
   const missingPhotoCount =
     property.missingPhotoAttributeKeys.length +
-    roomRows.reduce((n, row) => n + row.missingPhotoAttributeKeys.length, 0)
+    roomRows.reduce((n, row) => n + row.missingPhotoAttributeKeys.length, 0) +
+    assetRows.reduce((n, row) => n + row.missingPhotoAttributeKeys.length, 0)
 
   return {
     templateKey: template.id,
     templateVersion: template.version,
     property,
     rooms: roomRows,
+    assets: assetRows,
     missingAnswerCount,
     missingPhotoCount,
     isComplete: missingAnswerCount === 0 && missingPhotoCount === 0,
@@ -318,6 +397,17 @@ export function clearHiddenAnswers(
 ): RoomAnswers {
   return clearHiddenQuestionAnswers(roomType.questions, answers, {
     roomAnswers: answers,
+    propertyAnswers,
+  })
+}
+
+export function clearHiddenAssetAnswers(
+  assetType: AssetType,
+  answers: RoomAnswers,
+  propertyAnswers: RoomAnswers = {},
+): RoomAnswers {
+  return clearHiddenQuestionAnswers(assetType.questions, answers, {
+    assetAnswers: answers,
     propertyAnswers,
   })
 }

@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import FlowDialog from '@/components/inspection/FlowDialog.vue'
+import TemplateSelect from '@/components/inspection/TemplateSelect.vue'
 import { useProjectsStore } from '@/stores/projects'
 import { PRESET_FLOORS, useInspectionFlowStore } from '@/stores/inspection-flow'
 
@@ -15,10 +16,29 @@ const { t } = useI18n()
 const projects = useProjectsStore()
 const flow = useInspectionFlowStore()
 const { publishedTemplates } = storeToRefs(projects)
-const { selectedTemplates, floors, rooms, sortedRoomTypes, saving, merged } = storeToRefs(flow)
+const {
+  selectedTemplates,
+  selectedTemplateKeys,
+  floors,
+  rooms,
+  sortedRoomTypes,
+  saving,
+  merged,
+  hasRoomTypes,
+} = storeToRefs(flow)
 
 const hasPropertyQuestions = computed(
   () => (merged.value?.propertyQuestions.length ?? 0) > 0,
+)
+const hasAssetTypes = computed(() => (merged.value?.assetTypes.length ?? 0) > 0)
+const canContinue = computed(
+  () =>
+    floors.value.length > 0 &&
+    selectedTemplates.value.length > 0 &&
+    (rooms.value.length > 0 ||
+      hasPropertyQuestions.value ||
+      hasAssetTypes.value ||
+      !hasRoomTypes.value),
 )
 
 const busy = ref(false)
@@ -32,27 +52,15 @@ const disableOpen = computed({
   },
 })
 
-const selectedTemplateKeys = computed(
-  () => new Set(selectedTemplates.value.map((row) => row.templateKey)),
-)
-
-function isSelected(templateKey: string) {
-  return selectedTemplateKeys.value.has(templateKey)
+async function onEnableTemplate(templateKey: string, templateVersion: string) {
+  if (busy.value || saving.value) return
+  await flow.setTemplateEnabled(templateKey, templateVersion, true)
 }
 
-async function onToggleTemplate(templateKey: string, templateVersion: string, label: string) {
+function onAskDisableTemplate(templateKey: string, _templateVersion: string, label: string) {
   if (busy.value || saving.value) return
-  if (isSelected(templateKey)) {
-    if (selectedTemplates.value.length <= 1) return
-    pendingDisable.value = { templateKey, label }
-    return
-  }
-  busy.value = true
-  try {
-    await flow.addInspectionTemplate(templateKey, templateVersion)
-  } finally {
-    busy.value = false
-  }
+  if (selectedTemplates.value.length <= 1) return
+  pendingDisable.value = { templateKey, label }
 }
 
 function closeDisableDialog() {
@@ -63,12 +71,8 @@ async function confirmDisableTemplate() {
   const pending = pendingDisable.value
   pendingDisable.value = null
   if (!pending) return
-  busy.value = true
-  try {
-    await flow.removeInspectionTemplate(pending.templateKey)
-  } finally {
-    busy.value = false
-  }
+  const pin = selectedTemplates.value.find((row) => row.templateKey === pending.templateKey)
+  await flow.setTemplateEnabled(pending.templateKey, pin?.templateVersion ?? '', false)
 }
 
 async function onAddFloor() {
@@ -118,22 +122,14 @@ defineExpose({ closeDisableDialog })
     <div class="rounded-xl border border-border bg-card p-4">
       <p class="mb-1 text-sm font-medium">{{ t('flow.templates') }}</p>
       <p class="mb-3 text-sm text-muted-foreground">{{ t('flow.templatesHint') }}</p>
-      <div class="space-y-2">
-        <label
-          v-for="tpl in publishedTemplates"
-          :key="`${tpl.template_key}@${tpl.version}:${isSelected(tpl.template_key) ? 'on' : 'off'}`"
-          class="flex min-h-12 items-center gap-3 rounded-lg border border-border px-4"
-        >
-          <input
-            type="checkbox"
-            class="size-5"
-            :checked="isSelected(tpl.template_key)"
-            :disabled="isSelected(tpl.template_key) && selectedTemplates.length === 1"
-            @click.prevent.stop="onToggleTemplate(tpl.template_key, tpl.version, tpl.label)"
-          />
-          <span>{{ tpl.label }} ({{ tpl.version }})</span>
-        </label>
-      </div>
+      <TemplateSelect
+        :templates="publishedTemplates"
+        :selected-keys="selectedTemplateKeys"
+        :disabled="busy || saving"
+        lock-last
+        @enable="onEnableTemplate"
+        @disable="onAskDisableTemplate"
+      />
     </div>
 
     <div class="rounded-xl border border-border bg-card p-4">
@@ -173,6 +169,7 @@ defineExpose({ closeDisableDialog })
       </ul>
     </div>
 
+    <template v-if="hasRoomTypes">
     <div
       v-for="floor in floors"
       :key="floor.id"
@@ -184,7 +181,12 @@ defineExpose({ closeDisableDialog })
         <div
           v-for="rt in sortedRoomTypes"
           :key="rt.id"
-          class="flex min-h-12 items-center gap-3 rounded-lg border border-border px-4"
+          class="flex min-h-12 items-center gap-3 rounded-lg border px-4"
+          :class="
+            flow.roomsOfType(floor.id, rt.id).length > 0
+              ? 'border-brand bg-brand/5'
+              : 'border-border'
+          "
         >
           <input
             type="checkbox"
@@ -212,12 +214,11 @@ defineExpose({ closeDisableDialog })
         </div>
       </div>
     </div>
+    </template>
 
     <Button
       variant="brand"
-      :disabled="
-        (!rooms.length && !hasPropertyQuestions) || busy || saving || !selectedTemplates.length
-      "
+      :disabled="!canContinue || busy || saving"
       @click="emit('go-checklist')"
     >
       {{ t('flow.toChecklist') }}

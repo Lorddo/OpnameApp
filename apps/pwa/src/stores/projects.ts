@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api'
 import { db } from '@/db'
 import { purgePropertyLocal } from '@/db/repository'
 import { flushOutbox } from '@/db/sync'
+import { isBusySyncStatus } from '@/db/sync-status'
 
 export type TemplateSummary = {
   template_key: string
@@ -62,6 +63,12 @@ export const useProjectsStore = defineStore('projects', () => {
         status: row.status || existing.status,
         updated_at:
           row.updatedAt > existing.updated_at ? row.updatedAt : existing.updated_at,
+        inspection_template_pins: isBusySyncStatus(row.syncStatus)
+          ? row.templates.map((t) => ({
+              template_key: t.templateKey,
+              template_version: t.templateVersion,
+            }))
+          : existing.inspection_template_pins,
       })
     }
     return [...byId.values()].sort((a, b) => b.updated_at.localeCompare(a.updated_at))

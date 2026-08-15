@@ -347,6 +347,7 @@ export type RoomAnswers = Record<string, unknown>
 export interface ShowWhenEvalContext {
   roomAnswers?: RoomAnswers
   propertyAnswers?: RoomAnswers
+  assetAnswers?: RoomAnswers
 }
 
 function compare(left: unknown, op: ComparisonOp, right: ShowWhenValue): boolean {
@@ -401,6 +402,9 @@ export function evaluateShowWhen(node: ShowWhenNode, ctx: ShowWhenEvalContext): 
   }
   if (target.kind === 'property.this') {
     return compare(ctx.propertyAnswers?.[target.questionKey], op, value)
+  }
+  if (target.kind === 'asset.this') {
+    return compare(ctx.assetAnswers?.[target.questionKey], op, value)
   }
 
   throw new ShowWhenEvalError(

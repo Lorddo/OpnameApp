@@ -9,6 +9,14 @@ export type DossierRoom = {
   sort_order: number
   property_id?: string
 }
+export type DossierAsset = {
+  id: string
+  floor_id?: string | null
+  asset_type: string
+  label: string | null
+  sort_order?: number
+  property_id?: string
+}
 export type DossierObservation = {
   id?: string
   source_observation_id?: string
@@ -63,12 +71,19 @@ export type CompletenessEntry = {
     missingPhotoAttributeKeys?: string[]
   }
   rooms: CompletenessRoom[]
+  assets?: Array<{
+    assetId: string
+    isComplete: boolean
+    missingAttributeKeys?: string[]
+    missingPhotoAttributeKeys?: string[]
+  }>
 }
 export type DossierPayload = {
   exportedAt: string
   property: DossierProperty
   floors: DossierFloor[]
   rooms: DossierRoom[]
+  assets?: DossierAsset[]
   inspections: DossierInspection[]
   observations: DossierObservation[]
   facts: DossierObservation[]

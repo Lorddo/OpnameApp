@@ -274,6 +274,66 @@ describe('InspectionTemplateSchema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts empty roomTypes when assetTypes are present', () => {
+    const result = safeParseInspectionTemplate({
+      id: 'epaw',
+      version: '0.1.0',
+      label: 'EPA-w',
+      locale: 'nl-NL',
+      attributes: {
+        'asset.orientatie': {
+          answerScope: 'asset',
+          questionKey: 'orientatie',
+          label: 'Oriëntatie?',
+          answerType: 'choice',
+          options: [
+            { value: 'N', label: 'Noord' },
+            { value: 'onbekend', label: 'Onbekend' },
+          ],
+        },
+      },
+      roomTypes: [],
+      assetTypes: [
+        {
+          id: 'gevel',
+          label: 'Gevel',
+          location: 'floor',
+          allowMultiple: true,
+          questions: [{ attributeKey: 'asset.orientatie', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects room-scope attributes on assetTypes', () => {
+    const result = safeParseInspectionTemplate({
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'room.demoFlag': {
+          answerScope: 'room',
+          questionKey: 'demoFlag',
+          label: 'Demo?',
+          answerType: 'boolean',
+        },
+      },
+      roomTypes: [],
+      assetTypes: [
+        {
+          id: 'gevel',
+          label: 'Gevel',
+          location: 'floor',
+          allowMultiple: true,
+          questions: [{ attributeKey: 'room.demoFlag', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+    })
+    expect(result.success).toBe(false)
+  })
+
   it('rejects room-scope attributes in propertyQuestions', () => {
     const result = safeParseInspectionTemplate({
       id: 'demo',

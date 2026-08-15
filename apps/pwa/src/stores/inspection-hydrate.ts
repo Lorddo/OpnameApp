@@ -4,7 +4,9 @@ import { attributeQuestionKey, observationMapKey, subjectAnswerKey } from '@opna
 import { getDeviceId } from '@/db/device-id'
 import { nowIso } from '@/db/ids'
 import { isBusySyncStatus } from '@/db/sync-status'
+import type { TemplatePin } from '@/lib/templates'
 import type {
+  LocalAsset,
   LocalFloor,
   LocalInspection,
   LocalObservation,
@@ -57,6 +59,15 @@ export type InspectionDossierPayload = {
     updated_at?: string
     property_id?: string
   }>
+  assets?: Array<{
+    id: string
+    floor_id?: string | null
+    asset_type: string
+    label: string | null
+    sort_order?: number
+    updated_at?: string
+    property_id?: string
+  }>
   inspections: Array<{
     id: string
     status: string
@@ -83,6 +94,7 @@ export type LocalInspectionBundle = {
   property: LocalProperty | undefined
   floors: LocalFloor[]
   rooms: LocalRoom[]
+  assets: LocalAsset[]
   observations: LocalObservation[]
   photos: LocalPhoto[]
 }
@@ -106,12 +118,19 @@ export type HydrateBundle = {
   houseNumberAddition: string
   floors: Array<{ id: string; label: string; sortOrder: number }>
   rooms: Array<{ id: string; floorId: string; roomType: string; label: string | null }>
+  assets: Array<{
+    id: string
+    floorId: string | null
+    assetType: string
+    label: string | null
+  }>
   answersBySubject: Record<string, Record<string, unknown>>
   observationIdsByKey: Record<string, string>
   photos: HydratePhotoRef[]
   structureToCache?: {
     floors: LocalFloor[]
     rooms: LocalRoom[]
+    assets: LocalAsset[]
     observations: LocalObservation[]
     photos: LocalPhoto[]
   }
@@ -139,6 +158,14 @@ export type ApiResumePayload = {
       sort_order?: number
       updated_at?: string
     }>
+    assets?: Array<{
+      id: string
+      floor_id?: string | null
+      asset_type: string
+      label: string | null
+      sort_order?: number
+      updated_at?: string
+    }>
   }
   observations: ObservationLike[]
   photos: Array<{
@@ -154,9 +181,10 @@ export type ApiResumePayload = {
 
 export function bundleHasStructure(
   floors: Array<unknown> | undefined,
-  rooms: Array<unknown> | undefined,
+  _rooms?: Array<unknown>,
+  _assets?: Array<unknown>,
 ) {
-  return (floors?.length ?? 0) > 0 && (rooms?.length ?? 0) > 0
+  return (floors?.length ?? 0) > 0
 }
 
 export function chooseFlowStep(input: {
@@ -180,6 +208,37 @@ export function shouldPreferLocalBundle(input: {
   if (!input.hasStructure) return false
   if (!input.online) return true
   return isBusySyncStatus(input.syncStatus)
+}
+
+export function pinsFromApiRows(
+  pins?: Array<{ template_key: string; template_version: string }> | null,
+): TemplatePin[] {
+  return (pins ?? []).map((pin) => ({
+    templateKey: pin.template_key,
+    templateVersion: pin.template_version,
+  }))
+}
+
+/**
+ * Pending local pins win over stale remote/dossier pins. Empty remote still
+ * falls back to whatever Dexie already stored.
+ */
+export function resolveInspectionTemplates(
+  remote: TemplatePin[],
+  local?: { templates?: TemplatePin[]; syncStatus?: string | null } | null,
+): TemplatePin[] {
+  const localPins = (local?.templates ?? []).map((pin) => ({
+    templateKey: pin.templateKey,
+    templateVersion: pin.templateVersion,
+  }))
+  if (local && isBusySyncStatus(local.syncStatus) && localPins.length) return localPins
+  if (remote.length) {
+    return remote.map((pin) => ({
+      templateKey: pin.templateKey,
+      templateVersion: pin.templateVersion,
+    }))
+  }
+  return localPins
 }
 
 export function observationsForInspection(rows: ObservationLike[], inspectionId: string) {
@@ -302,6 +361,12 @@ export function hydrateBundleFromLocal(local: LocalInspectionBundle): HydrateBun
       roomType: r.roomType,
       label: r.label,
     })),
+    assets: (local.assets ?? []).map((a) => ({
+      id: a.id,
+      floorId: a.floorId,
+      assetType: a.assetType,
+      label: a.label,
+    })),
     answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLocal(local.photos, local.observations),
@@ -325,13 +390,10 @@ export function hydrateBundleFromDossier(
     dossier.rooms[0]?.property_id ??
     null
 
-  let templates = (inspection.inspection_template_pins ?? []).map((p) => ({
-    templateKey: p.template_key,
-    templateVersion: p.template_version,
-  }))
-  if (!templates.length && local?.inspection?.templates.length) {
-    templates = local.inspection.templates
-  }
+  const templates = resolveInspectionTemplates(
+    pinsFromApiRows(inspection.inspection_template_pins),
+    local?.inspection,
+  )
 
   const floors = [...dossier.floors]
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -341,6 +403,12 @@ export function hydrateBundleFromDossier(
     floorId: r.floor_id,
     roomType: r.room_type,
     label: r.label,
+  }))
+  const assets = (dossier.assets ?? []).map((a) => ({
+    id: a.id,
+    floorId: a.floor_id ?? null,
+    assetType: a.asset_type,
+    label: a.label,
   }))
 
   const mapped = answersFromDossier(dossier, inspection.id)
@@ -361,6 +429,7 @@ export function hydrateBundleFromDossier(
     houseNumberAddition: dossier.property.house_number_addition ?? '',
     floors,
     rooms,
+    assets,
     answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLinkedRows(dossier.photos ?? [], obsById),
@@ -371,6 +440,7 @@ export function hydrateBundleFromDossier(
     const deviceId = getDeviceId()
     const floorById = new Map(dossier.floors.map((f) => [f.id, f]))
     const roomById = new Map(dossier.rooms.map((r) => [r.id, r]))
+    const assetById = new Map((dossier.assets ?? []).map((a) => [a.id, a]))
     bundle.structureToCache = {
       floors: floors.map((f) => ({
         id: f.id,
@@ -388,6 +458,16 @@ export function hydrateBundleFromDossier(
         label: r.label,
         sortOrder: roomById.get(r.id)?.sort_order ?? index,
         updatedAt: roomById.get(r.id)?.updated_at ?? cachedAt,
+        syncStatus: 'synced',
+      })),
+      assets: assets.map((a, index) => ({
+        id: a.id,
+        propertyId,
+        floorId: a.floorId,
+        assetType: a.assetType,
+        label: a.label,
+        sortOrder: assetById.get(a.id)?.sort_order ?? index,
+        updatedAt: assetById.get(a.id)?.updated_at ?? cachedAt,
         syncStatus: 'synced',
       })),
       observations: obsRows.flatMap((o) => {
@@ -434,7 +514,10 @@ export function hydrateBundleFromDossier(
   return bundle
 }
 
-export function hydrateBundleFromApi(payload: ApiResumePayload): HydrateBundle {
+export function hydrateBundleFromApi(
+  payload: ApiResumePayload,
+  local?: { templates?: TemplatePin[]; syncStatus?: string | null } | null,
+): HydrateBundle {
   const { inspection, structure, observations, photos } = payload
   const floors = (structure.floors ?? [])
     .slice()
@@ -446,6 +529,12 @@ export function hydrateBundleFromApi(payload: ApiResumePayload): HydrateBundle {
     roomType: r.room_type,
     label: r.label,
   }))
+  const assets = (structure.assets ?? []).map((a) => ({
+    id: a.id,
+    floorId: a.floor_id ?? null,
+    assetType: a.asset_type,
+    label: a.label,
+  }))
   const mapped = answersFromObservations(observations ?? [])
   const obsById = new Map((observations ?? []).map((o) => [String(o.id), o]))
   const cachedAt = nowIso()
@@ -455,15 +544,16 @@ export function hydrateBundleFromApi(payload: ApiResumePayload): HydrateBundle {
     inspectionId: inspection.id,
     propertyId: inspection.property_id,
     status: inspection.status,
-    templates: (inspection.inspection_template_pins ?? []).map((p) => ({
-      templateKey: p.template_key,
-      templateVersion: p.template_version,
-    })),
+    templates: resolveInspectionTemplates(
+      pinsFromApiRows(inspection.inspection_template_pins),
+      local,
+    ),
     postcode: structure.property.postcode,
     houseNumber: structure.property.house_number,
     houseNumberAddition: structure.property.house_number_addition ?? '',
     floors,
     rooms,
+    assets,
     answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLinkedRows(photos ?? [], obsById),
@@ -483,6 +573,16 @@ export function hydrateBundleFromApi(payload: ApiResumePayload): HydrateBundle {
         roomType: r.roomType,
         label: r.label,
         sortOrder: structure.rooms?.[index]?.sort_order ?? index,
+        updatedAt: cachedAt,
+        syncStatus: 'synced',
+      })),
+      assets: assets.map((a, index) => ({
+        id: a.id,
+        propertyId: inspection.property_id,
+        floorId: a.floorId,
+        assetType: a.assetType,
+        label: a.label,
+        sortOrder: structure.assets?.[index]?.sort_order ?? index,
         updatedAt: cachedAt,
         syncStatus: 'synced',
       })),
@@ -530,6 +630,7 @@ export function localPropertyToDossierPayload(input: {
   property: LocalProperty
   floors: LocalFloor[]
   rooms: LocalRoom[]
+  assets?: LocalAsset[]
   inspections: LocalInspection[]
   observations: LocalObservation[]
   photos: LocalPhoto[]
@@ -557,6 +658,15 @@ export function localPropertyToDossierPayload(input: {
       sort_order: r.sortOrder,
       property_id: r.propertyId,
       updated_at: r.updatedAt,
+    })),
+    assets: (input.assets ?? []).map((a) => ({
+      id: a.id,
+      floor_id: a.floorId,
+      asset_type: a.assetType,
+      label: a.label,
+      sort_order: a.sortOrder,
+      property_id: a.propertyId,
+      updated_at: a.updatedAt,
     })),
     inspections: input.inspections.map((i) => ({
       id: i.id,

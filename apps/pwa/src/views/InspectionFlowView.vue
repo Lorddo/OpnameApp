@@ -68,8 +68,8 @@ async function onStart() {
   }
 }
 
-function goChecklist() {
-  flow.enterChecklist()
+async function goChecklist() {
+  await flow.enterChecklist()
 }
 
 function goDossier() {

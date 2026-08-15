@@ -37,6 +37,17 @@ export type LocalRoom = {
   syncStatus: SyncStatus
 }
 
+export type LocalAsset = {
+  id: string
+  propertyId: string
+  floorId: string | null
+  assetType: string
+  label: string | null
+  sortOrder: number
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
 export type LocalInspection = {
   id: string
   propertyId: string
@@ -102,6 +113,8 @@ export type OutboxOp =
   | 'floor.delete'
   | 'room.upsert'
   | 'room.delete'
+  | 'asset.upsert'
+  | 'asset.delete'
   | 'inspection.upsert'
   | 'inspection.patch'
   | 'observations.batch'

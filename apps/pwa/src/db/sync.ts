@@ -26,6 +26,7 @@ async function setEntitySyncStatus(
     | 'properties'
     | 'floors'
     | 'rooms'
+    | 'assets'
     | 'inspections'
     | 'observations'
     | 'photos',
@@ -118,6 +119,37 @@ async function processItem(item: OutboxItem): Promise<void> {
       const r = item.payload as { id: string; propertyId: string }
       try {
         await apiFetch(`/api/properties/${r.propertyId}/rooms/${r.id}`, { method: 'DELETE' })
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err
+      }
+      return
+    }
+    case 'asset.upsert': {
+      const a = item.payload as {
+        id: string
+        propertyId: string
+        floorId: string | null
+        assetType: string
+        label: string | null
+        sortOrder: number
+      }
+      await apiFetch(`/api/properties/${a.propertyId}/assets`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id: a.id,
+          floorId: a.floorId,
+          assetType: a.assetType,
+          label: a.label,
+          sortOrder: a.sortOrder,
+        }),
+      })
+      await setEntitySyncStatus('assets', a.id, 'synced')
+      return
+    }
+    case 'asset.delete': {
+      const a = item.payload as { id: string; propertyId: string }
+      try {
+        await apiFetch(`/api/properties/${a.propertyId}/assets/${a.id}`, { method: 'DELETE' })
       } catch (err) {
         if (!isNotFoundError(err)) throw err
       }
@@ -281,7 +313,9 @@ export async function flushOutbox(): Promise<{ processed: number; failed: number
                 ? 'floors'
                 : item.op.startsWith('room')
                   ? 'rooms'
-                  : item.op.startsWith('inspection')
+                  : item.op.startsWith('asset')
+                    ? 'assets'
+                    : item.op.startsWith('inspection')
                     ? 'inspections'
                     : item.op.startsWith('observation')
                       ? 'observations'

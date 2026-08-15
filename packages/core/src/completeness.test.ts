@@ -128,6 +128,53 @@ describe('completeness', () => {
     expect(answered.isComplete).toBe(true)
   })
 
+  it('scores created assets and treats onbekend as answered', () => {
+    const withAssets: InspectionTemplate = {
+      ...template,
+      roomTypes: [],
+      attributes: {
+        ...template.attributes,
+        'asset.orientatie': {
+          answerScope: 'asset',
+          questionKey: 'orientatie',
+          label: 'Oriëntatie?',
+          answerType: 'choice',
+          options: [
+            { value: 'N', label: 'Noord' },
+            { value: 'onbekend', label: 'Onbekend' },
+          ],
+        },
+      },
+      assetTypes: [
+        {
+          id: 'gevel',
+          label: 'Gevel',
+          location: 'floor',
+          allowMultiple: true,
+          questions: [{ attributeKey: 'asset.orientatie', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+    }
+
+    const empty = evaluateTemplateCompleteness(withAssets, [], {})
+    expect(empty.assets).toEqual([])
+    expect(empty.isComplete).toBe(true)
+
+    const missing = evaluateTemplateCompleteness(withAssets, [], {}, {}, {
+      assets: [{ id: 'a1', assetType: 'gevel' }],
+      answersByAssetId: {},
+    })
+    expect(missing.assets[0]?.missingAttributeKeys).toEqual(['asset.orientatie'])
+    expect(missing.isComplete).toBe(false)
+
+    const unknown = evaluateTemplateCompleteness(withAssets, [], {}, {}, {
+      assets: [{ id: 'a1', assetType: 'gevel' }],
+      answersByAssetId: { a1: { orientatie: 'onbekend' } },
+    })
+    expect(unknown.assets[0]?.isComplete).toBe(true)
+    expect(unknown.isComplete).toBe(true)
+  })
+
   it('defaults empty checklists with geen to none of these and skips photos', () => {
     const listTemplate: InspectionTemplate = {
       id: 'demo',

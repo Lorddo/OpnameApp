@@ -79,6 +79,21 @@ describe('evaluateShowWhen', () => {
     ).toBe(true)
   })
 
+  it('evaluates asset.this against assetAnswers', () => {
+    const ast = parseShowWhen('asset.this.isolatieAanwezig = "ja"')
+    expect(
+      evaluateShowWhen(ast, {
+        assetAnswers: { isolatieAanwezig: 'ja' },
+        propertyAnswers: { bovenkant: 'buiten' },
+      }),
+    ).toBe(true)
+    expect(
+      evaluateShowWhen(ast, {
+        assetAnswers: { isolatieAanwezig: 'onbekend' },
+      }),
+    ).toBe(false)
+  })
+
   it('throws a clear error for unsupported selectors', () => {
     const ast = parseShowWhen('floor.this.demo = true')
     expect(() => evaluateShowWhen(ast, { roomAnswers: {} })).toThrow(ShowWhenEvalError)

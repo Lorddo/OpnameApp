@@ -5,7 +5,7 @@ export async function loadPropertyStructure(db: SupabaseClient, propertyId: stri
   const [floors, rooms, assets] = await Promise.all([
     db.from('floors').select('*').eq('property_id', propertyId).order('sort_order'),
     db.from('rooms').select('*').eq('property_id', propertyId).order('sort_order'),
-    db.from('assets').select('*').eq('property_id', propertyId),
+    db.from('assets').select('*').eq('property_id', propertyId).order('sort_order'),
   ])
   throwIfDbError(floors.error)
   throwIfDbError(rooms.error)

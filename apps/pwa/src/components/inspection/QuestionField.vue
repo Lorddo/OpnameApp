@@ -16,7 +16,7 @@ import type { VisibleQuestion } from '@opnameapp/core'
 import { useInspectionFlowStore } from '@/stores/inspection-flow'
 
 const props = defineProps<{
-  subjectType: 'property' | 'room'
+  subjectType: 'property' | 'room' | 'asset'
   subjectId: string
   question: VisibleQuestion
   helpActive: boolean
@@ -52,17 +52,26 @@ function selectedValues(value: unknown, options?: Array<{ value: string }>): str
     : []
 }
 
+function exclusiveMultiValue(options?: Array<{ value: string }>) {
+  return options?.find((opt) => opt.value === NONE_OPTION || opt.value === 'onbekend')?.value
+}
+
 function onToggleMultiChoice(optionValue: string, options?: Array<{ value: string }>) {
   const current = selectedValues(answerModel(), options)
-  if (optionValue === NONE_OPTION) {
-    onAnswer([NONE_OPTION])
+  const exclusive = exclusiveMultiValue(options)
+  if (exclusive && optionValue === exclusive) {
+    onAnswer([exclusive])
     return
   }
-  const withoutNone = current.filter((item) => item !== NONE_OPTION)
-  const next = withoutNone.includes(optionValue)
-    ? withoutNone.filter((item) => item !== optionValue)
-    : [...withoutNone, optionValue]
-  onAnswer(next.length ? next : [NONE_OPTION])
+  const withoutExclusive = exclusive ? current.filter((item) => item !== exclusive) : current
+  const next = withoutExclusive.includes(optionValue)
+    ? withoutExclusive.filter((item) => item !== optionValue)
+    : [...withoutExclusive, optionValue]
+  if (next.length) {
+    onAnswer(next)
+    return
+  }
+  onAnswer(exclusive === NONE_OPTION ? [NONE_OPTION] : [])
 }
 
 function isMissing() {

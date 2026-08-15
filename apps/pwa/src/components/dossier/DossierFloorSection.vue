@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { AnswerRow, DossierFloor, DossierPhoto, DossierRoom } from '@/components/dossier/types'
+import type {
+  AnswerRow,
+  DossierAsset,
+  DossierFloor,
+  DossierPhoto,
+  DossierRoom,
+} from '@/components/dossier/types'
 
 export type FloorRoom = DossierRoom & { answers: AnswerRow[] }
-export type FloorWithRooms = DossierFloor & { rooms: FloorRoom[] }
+export type FloorAsset = DossierAsset & { answers: AnswerRow[] }
+export type FloorWithRooms = DossierFloor & { rooms: FloorRoom[]; assets?: FloorAsset[] }
 
 defineProps<{
   floor: FloorWithRooms
   roomTypeLabel: (roomType: string) => string
+  assetTypeLabel?: (assetType: string) => string
   roomIsComplete: (roomId: string) => boolean
   attrLabel: (attributeKey: string) => string
   formatValue: (attributeKey: string, value: unknown) => string
-  photosForAnswer: (roomId: string, answer: AnswerRow) => DossierPhoto[]
+  photosForAnswer: (subjectId: string, answer: AnswerRow, subjectType?: string) => DossierPhoto[]
   photoPreviewUrls: Record<string, string>
 }>()
 
@@ -82,7 +90,55 @@ const { t } = useI18n()
           {{ t('dossier.noAnswers') }}
         </p>
       </section>
-      <p v-if="!floor.rooms.length" class="text-sm text-muted-foreground">
+      <section
+        v-for="asset in floor.assets ?? []"
+        :key="asset.id"
+        class="border-t border-border pt-4 print:break-inside-avoid"
+      >
+        <h3 class="mb-3 text-lg font-semibold">
+          {{ asset.label || (assetTypeLabel ? assetTypeLabel(asset.asset_type) : asset.asset_type) }}
+        </h3>
+        <dl class="space-y-3">
+          <div
+            v-for="answer in asset.answers"
+            :key="answer.attribute_key"
+            class="space-y-2 print:break-inside-avoid"
+          >
+            <div class="grid gap-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+              <dt class="text-sm text-muted-foreground">
+                {{ attrLabel(answer.attribute_key) }}
+              </dt>
+              <dd class="font-medium">
+                {{ formatValue(answer.attribute_key, answer.value) }}
+              </dd>
+            </div>
+            <div
+              v-if="photosForAnswer(asset.id, answer, 'asset').length"
+              class="flex flex-wrap gap-2 sm:pl-[calc(58.3%+0.25rem)]"
+            >
+              <a
+                v-for="photo in photosForAnswer(asset.id, answer, 'asset')"
+                :key="photo.id"
+                :href="photoPreviewUrls[photo.id]"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block"
+              >
+                <img
+                  v-if="photoPreviewUrls[photo.id]"
+                  :src="photoPreviewUrls[photo.id]"
+                  :alt="t('flow.photoAlt')"
+                  class="h-[250px] w-[250px] rounded-lg border border-border object-cover"
+                />
+              </a>
+            </div>
+          </div>
+        </dl>
+        <p v-if="!asset.answers.length" class="text-sm text-muted-foreground">
+          {{ t('dossier.noAnswers') }}
+        </p>
+      </section>
+      <p v-if="!floor.rooms.length && !(floor.assets ?? []).length" class="text-sm text-muted-foreground">
         {{ t('flow.noRoomsOnFloor') }}
       </p>
     </div>

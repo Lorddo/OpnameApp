@@ -34,13 +34,16 @@ for each row execute function public.set_updated_at();
 create table public.assets (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties (id) on delete cascade,
+  floor_id uuid references public.floors (id) on delete cascade,
   asset_type text not null,
   label text,
+  sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
 create index assets_property_id_idx on public.assets (property_id);
+create index assets_floor_id_idx on public.assets (floor_id);
 
 create trigger assets_set_updated_at
 before update on public.assets

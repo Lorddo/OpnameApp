@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type {
+  LocalAsset,
   LocalFloor,
   LocalInspection,
   LocalObservation,
@@ -16,6 +17,7 @@ export class OpnameDB extends Dexie {
   properties!: EntityTable<LocalProperty, 'id'>
   floors!: EntityTable<LocalFloor, 'id'>
   rooms!: EntityTable<LocalRoom, 'id'>
+  assets!: EntityTable<LocalAsset, 'id'>
   inspections!: EntityTable<LocalInspection, 'id'>
   observations!: EntityTable<LocalObservation, 'id'>
   photos!: EntityTable<LocalPhoto, 'id'>
@@ -37,6 +39,9 @@ export class OpnameDB extends Dexie {
       templates: 'id, templateKey, version',
       outbox: 'id, op, nextAttemptAt, createdAt',
       syncMeta: 'key',
+    })
+    this.version(2).stores({
+      assets: 'id, propertyId, floorId, updatedAt, syncStatus',
     })
   }
 }

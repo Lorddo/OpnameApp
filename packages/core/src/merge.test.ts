@@ -196,4 +196,36 @@ describe('mergeTemplates', () => {
     expect(merged.propertyQuestions.map((q) => q.attributeKey)).toEqual(['property.woz'])
     expect(merged.conflicts.filter((c) => c.roomTypeId === 'property')).toEqual([])
   })
+
+  it('merges assetTypes independently of rooms', () => {
+    const withAssets: InspectionTemplate = {
+      ...wws,
+      attributes: {
+        ...wws.attributes,
+        'asset.orientatie': {
+          answerScope: 'asset',
+          questionKey: 'orientatie',
+          label: 'Oriëntatie?',
+          answerType: 'choice',
+          options: [
+            { value: 'N', label: 'Noord' },
+            { value: 'onbekend', label: 'Onbekend' },
+          ],
+        },
+      },
+      assetTypes: [
+        {
+          id: 'gevel',
+          label: 'Gevel',
+          location: 'floor',
+          allowMultiple: true,
+          questions: [{ attributeKey: 'asset.orientatie', sortOrder: 1, photoRequired: true }],
+        },
+      ],
+    }
+    const merged = mergeTemplates([bbmi, withAssets])
+    expect(merged.assetTypes.map((at) => at.id)).toEqual(['gevel'])
+    expect(merged.assetTypes[0]?.questions[0]?.photoRequired).toBe(true)
+    expect(merged.roomTypes.map((rt) => rt.id)).toEqual(['serre'])
+  })
 })

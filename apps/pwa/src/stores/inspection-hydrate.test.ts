@@ -3,7 +3,9 @@ import {
   answersFromDossier,
   bundleHasStructure,
   chooseFlowStep,
+  hydrateBundleFromDossier,
   hydrateBundleFromLocal,
+  resolveInspectionTemplates,
   shouldPreferLocalBundle,
   type InspectionDossierPayload,
 } from './inspection-hydrate'
@@ -18,6 +20,11 @@ describe('chooseFlowStep', () => {
         editing: true,
       }),
     ).toBe(3)
+  })
+
+  it('treats floors alone as enough structure for EPA-w', () => {
+    expect(bundleHasStructure([{ id: 'f1' }], [])).toBe(true)
+    expect(bundleHasStructure([], [])).toBe(false)
   })
 
   it('stays on the structure step when floors or rooms are missing', () => {
@@ -208,6 +215,7 @@ describe('hydrateBundleFromLocal', () => {
           syncStatus: 'synced' as const,
         },
       ],
+      assets: [],
       observations: [
         {
           id: 'o1',
@@ -239,5 +247,83 @@ describe('hydrateBundleFromLocal', () => {
 
   it('returns null when inspection or property is missing', () => {
     expect(hydrateBundleFromLocal({ inspection: null, property: null, floors: [], rooms: [], observations: [], photos: [] } as never)).toBeNull()
+  })
+})
+
+describe('resolveInspectionTemplates', () => {
+  const remote = [{ templateKey: 'bbmi', templateVersion: '1.0.0' }]
+  const localPins = [
+    { templateKey: 'bbmi', templateVersion: '1.0.0' },
+    { templateKey: 'epaw', templateVersion: '0.1.0' },
+  ]
+
+  it('keeps pending local pins when the server/dossier list is stale', () => {
+    expect(
+      resolveInspectionTemplates(remote, { templates: localPins, syncStatus: 'pending' }),
+    ).toEqual(localPins)
+  })
+
+  it('uses remote pins once the local inspection is synced', () => {
+    expect(
+      resolveInspectionTemplates(remote, { templates: localPins, syncStatus: 'synced' }),
+    ).toEqual(remote)
+  })
+
+  it('falls back to local pins when remote has none', () => {
+    expect(
+      resolveInspectionTemplates([], { templates: localPins, syncStatus: 'synced' }),
+    ).toEqual(localPins)
+  })
+})
+
+describe('hydrateBundleFromDossier', () => {
+  it('keeps a newly enabled local pin when the dossier still has the old list', () => {
+    const dossier: InspectionDossierPayload = {
+      property: {
+        id: 'p1',
+        postcode: '1234AB',
+        house_number: '10',
+        house_number_addition: null,
+      },
+      floors: [{ id: 'f1', label: 'Begane grond', sort_order: 0, property_id: 'p1' }],
+      rooms: [],
+      inspections: [
+        {
+          id: 'i1',
+          status: 'in_progress',
+          inspection_template_pins: [{ template_key: 'bbmi', template_version: '1.0.0' }],
+        },
+      ],
+      observations: [],
+      photos: [],
+    }
+    const local = {
+      inspection: {
+        id: 'i1',
+        propertyId: 'p1',
+        status: 'in_progress',
+        startedAt: null,
+        completedAt: null,
+        templates: [
+          { templateKey: 'bbmi', templateVersion: '1.0.0' },
+          { templateKey: 'epaw', templateVersion: '0.1.0' },
+        ],
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        syncStatus: 'pending' as const,
+        lastSyncError: null,
+      },
+      property: undefined,
+      floors: [],
+      rooms: [],
+      assets: [],
+      observations: [],
+      photos: [],
+    }
+
+    const bundle = hydrateBundleFromDossier('i1', dossier, local)
+    expect(bundle?.templates).toEqual([
+      { templateKey: 'bbmi', templateVersion: '1.0.0' },
+      { templateKey: 'epaw', templateVersion: '0.1.0' },
+    ])
   })
 })

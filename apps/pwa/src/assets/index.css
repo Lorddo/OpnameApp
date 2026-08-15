@@ -119,6 +119,55 @@
   h3 {
     @apply font-display tracking-tight;
   }
+
+  /* Native controls lose their tick on Windows once Tailwind zeros borders.
+     Draw our own so :checked is always visible. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    background-color: var(--card);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 0.85rem 0.85rem;
+    border: 2px solid var(--border);
+    color: var(--brand-foreground);
+  }
+
+  input[type='checkbox'] {
+    border-radius: 0.25rem;
+  }
+
+  input[type='radio'] {
+    border-radius: 9999px;
+  }
+
+  input[type='checkbox']:checked {
+    background-color: var(--brand);
+    border-color: var(--brand);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3.2 8.2 6.4 11.4 12.8 4.6' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  input[type='radio']:checked {
+    background-color: var(--brand);
+    border-color: var(--brand);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='3.2' fill='%23ffffff'/%3E%3C/svg%3E");
+  }
+
+  input[type='checkbox']:disabled,
+  input[type='radio']:disabled {
+    opacity: 0.5;
+  }
+
+  input[type='checkbox']:focus-visible,
+  input[type='radio']:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 @media print {

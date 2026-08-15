@@ -9,6 +9,7 @@ import DossierPropertyCard from '@/components/dossier/DossierPropertyCard.vue'
 import { useDossierLoad } from '@/components/dossier/useDossierLoad'
 import type { AnswerRow, CompletenessEntry, DossierObservation } from '@/components/dossier/types'
 import {
+  assetTypeLabel as labelForAssetType,
   downloadJson,
   formatAddress,
   formatDate as formatDateLocale,
@@ -72,6 +73,10 @@ function attrLabel(attributeKey: string) {
 
 function roomTypeLabel(roomType: string) {
   return labelForRoomType(merged.value?.roomTypes, roomType)
+}
+
+function assetTypeLabel(assetType: string) {
+  return labelForAssetType(merged.value?.assetTypes, assetType)
 }
 
 function formatValue(attributeKey: string, value: unknown) {
@@ -155,6 +160,9 @@ const floorsWithRooms = computed(() => {
   if (!dossier.value) return []
   const floors = [...dossier.value.floors].sort((a, b) => a.sort_order - b.sort_order)
   const rooms = [...dossier.value.rooms].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  const assets = [...(dossier.value.assets ?? [])].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+  )
   return floors.map((floor) => ({
     ...floor,
     rooms: rooms
@@ -163,7 +171,23 @@ const floorsWithRooms = computed(() => {
         ...room,
         answers: answersForRoom(room.id),
       })),
+    assets: assets
+      .filter((asset) => asset.floor_id === floor.id)
+      .map((asset) => ({
+        ...asset,
+        answers: answersForSubject('asset', asset.id),
+      })),
   }))
+})
+
+const propertyInstallations = computed(() => {
+  if (!dossier.value) return []
+  return (dossier.value.assets ?? [])
+    .filter((asset) => !asset.floor_id)
+    .map((asset) => ({
+      ...asset,
+      answers: answersForSubject('asset', asset.id),
+    }))
 })
 
 const completenessEntries = computed((): CompletenessEntry[] => {
@@ -203,12 +227,40 @@ const completenessEntries = computed((): CompletenessEntry[] => {
       photosByRoom[obs.subject_id]![obs.attribute_key] =
         (photosByRoom[obs.subject_id]![obs.attribute_key] ?? 0) + 1
     }
+    const answersByAsset: Record<string, Record<string, unknown>> = {}
+    const photosByAsset: Record<string, Record<string, number>> = {}
+    for (const asset of payload.assets ?? []) {
+      answersByAsset[asset.id] = {}
+      photosByAsset[asset.id] = {}
+    }
+    for (const obs of payload.observations) {
+      if (obs.subject_type !== 'asset') continue
+      const key = attributeQuestionKey(obs.attribute_key)
+      answersByAsset[obs.subject_id] ??= {}
+      answersByAsset[obs.subject_id]![key] = obs.value
+    }
+    for (const photo of payload.photos) {
+      const obs = payload.observations.find((row) => row.id === photo.observation_id)
+      if (!obs || obs.subject_type !== 'asset') continue
+      photosByAsset[obs.subject_id] ??= {}
+      photosByAsset[obs.subject_id]![obs.attribute_key] =
+        (photosByAsset[obs.subject_id]![obs.attribute_key] ?? 0) + 1
+    }
     return evaluateTemplateCompleteness(
       tpl,
       payload.rooms.map((room) => ({ id: room.id, roomType: room.room_type })),
       answersByRoom,
       photosByRoom,
-      { propertyAnswers, propertyPhotos },
+      {
+        propertyAnswers,
+        propertyPhotos,
+        assets: (payload.assets ?? []).map((asset) => ({
+          id: asset.id,
+          assetType: asset.asset_type,
+        })),
+        answersByAssetId: answersByAsset,
+        photosByAssetId: photosByAsset,
+      },
     )
   })
 })
@@ -348,13 +400,59 @@ function statusLabel(status: string) {
         :key="floor.id"
         :floor="floor"
         :room-type-label="roomTypeLabel"
+        :asset-type-label="assetTypeLabel"
         :room-is-complete="roomIsComplete"
         :attr-label="attrLabel"
         :format-value="formatValue"
         :photos-for-answer="photosForAnswer"
         :photo-preview-urls="photoPreviewUrls"
       />
-      <p v-if="!floorsWithRooms.length" class="text-muted-foreground">{{ t('dossier.empty') }}</p>
+      <div
+        v-if="propertyInstallations.length"
+        class="rounded-xl border border-border bg-card p-5 print:bg-white print:shadow-none"
+      >
+        <h2 class="mb-4 text-xl font-semibold">{{ t('flow.installations') }}</h2>
+        <section
+          v-for="asset in propertyInstallations"
+          :key="asset.id"
+          class="border-t border-border pt-4 first:border-t-0 first:pt-0"
+        >
+          <h3 class="mb-3 text-lg font-semibold">
+            {{ asset.label || assetTypeLabel(asset.asset_type) }}
+          </h3>
+          <dl class="space-y-3">
+            <div v-for="answer in asset.answers" :key="answer.attribute_key" class="space-y-2">
+              <div class="grid gap-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                <dt class="text-sm text-muted-foreground">{{ attrLabel(answer.attribute_key) }}</dt>
+                <dd class="font-medium">{{ formatValue(answer.attribute_key, answer.value) }}</dd>
+              </div>
+              <div
+                v-if="photosForAnswer(asset.id, answer, 'asset').length"
+                class="flex flex-wrap gap-2 sm:pl-[calc(58.3%+0.25rem)]"
+              >
+                <a
+                  v-for="photo in photosForAnswer(asset.id, answer, 'asset')"
+                  :key="photo.id"
+                  :href="photoPreviewUrls[photo.id]"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block"
+                >
+                  <img
+                    v-if="photoPreviewUrls[photo.id]"
+                    :src="photoPreviewUrls[photo.id]"
+                    :alt="t('flow.photoAlt')"
+                    class="h-[250px] w-[250px] rounded-lg border border-border object-cover"
+                  />
+                </a>
+              </div>
+            </div>
+          </dl>
+        </section>
+      </div>
+      <p v-if="!floorsWithRooms.length && !propertyInstallations.length" class="text-muted-foreground">
+        {{ t('dossier.empty') }}
+      </p>
     </template>
   </section>
 </template>

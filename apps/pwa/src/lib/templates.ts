@@ -5,6 +5,19 @@ import { cloneForIdb } from '@/db/clone'
 
 export type TemplatePin = { templateKey: string; templateVersion: string }
 
+/** Next pin list after enable/disable. `null` means no change (already set, or last pin). */
+export function nextSelectedTemplates(
+  current: TemplatePin[],
+  pin: TemplatePin,
+  enabled: boolean,
+): TemplatePin[] | null {
+  const isSelected = current.some((row) => row.templateKey === pin.templateKey)
+  if (enabled === isSelected) return null
+  if (!enabled && current.length <= 1) return null
+  if (enabled) return [...current, { ...pin }]
+  return current.filter((row) => row.templateKey !== pin.templateKey)
+}
+
 /** Fetch published template configs (API first, Dexie cache on failure) and refresh the local cache. */
 export async function loadTemplateConfigs(pins: TemplatePin[]): Promise<InspectionTemplate[]> {
   const configs: InspectionTemplate[] = []

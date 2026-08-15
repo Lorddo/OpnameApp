@@ -2,9 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, nextTick, ref } from 'vue'
 import { apiFetch } from '@/lib/api'
 import { resolvePhotoPreviewUrl } from '@/lib/photo-preview'
-import { loadTemplateConfigs as fetchTemplateConfigs } from '@/lib/templates'
+import {
+  loadTemplateConfigs as fetchTemplateConfigs,
+  nextSelectedTemplates,
+} from '@/lib/templates'
 import { newId } from '@/db/ids'
 import {
+  addAssetLocal,
   addFloorLocal,
   addRoomLocal,
   cacheSyncedStructureLocal,
@@ -12,6 +16,7 @@ import {
   createInspectionLocal,
   createPropertyLocal,
   getLocalInspectionBundle,
+  removeAssetLocal,
   removeFloorLocal,
   removeRoomLocal,
   reopenInspectionLocal,
@@ -23,14 +28,18 @@ import type { InspectionTemplate, Visibility } from '@opnameapp/core'
 import {
   applyNoneOfTheseDefaults,
   clearHiddenAnswers,
+  clearHiddenAssetAnswers,
   clearHiddenQuestionAnswers,
+  evaluateMergedAssetCompleteness,
   evaluateMergedPropertyCompleteness,
   evaluateMergedRoomCompleteness,
   evaluateTemplateCompleteness,
+  exclusiveAssetTypeIdsForTemplate,
   exclusiveAttributeKeysForTemplate,
   exclusiveRoomTypeIdsForTemplate,
   formatNlPostcode,
   isCompleteNlPostcode,
+  listMergedVisibleAssetQuestions,
   listMergedVisiblePropertyQuestions,
   listMergedVisibleQuestions,
   mergeTemplates,
@@ -51,6 +60,17 @@ import {
 } from '@/stores/inspection-hydrate'
 
 const METERKAST_ROOM_TYPE_ID = 'meterkast'
+const GEVEL_ASSET_TYPE = 'gevel'
+const DAK_ASSET_TYPE = 'dak'
+const VLOER_ASSET_TYPE = 'vloer'
+export const PROPERTY_TAB_ID = '__property__'
+
+const DEFAULT_GEVELS = [
+  { zijde: 'voor', label: 'Voorgevel' },
+  { zijde: 'linkerzij', label: 'Linkergevel' },
+  { zijde: 'achter', label: 'Achtergevel' },
+  { zijde: 'rechterzij', label: 'Rechtergevel' },
+] as const
 
 function compareRoomTypeOrder(a: { id: string; label: string }, b: { id: string; label: string }) {
   if (a.id === METERKAST_ROOM_TYPE_ID && b.id !== METERKAST_ROOM_TYPE_ID) return -1
@@ -96,6 +116,9 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   const rooms = ref<
     Array<{ id: string; floorId: string; roomType: string; label: string | null }>
   >([])
+  const assets = ref<
+    Array<{ id: string; floorId: string | null; assetType: string; label: string | null }>
+  >([])
   const activeFloorId = ref<string | null>(null)
   const answersBySubject = ref<Record<string, Record<string, unknown>>>({})
   /** Stable observation ids keyed by `${subjectType}:${subjectId}|${attributeKey}`. */
@@ -116,6 +139,19 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
 
   const activeFloor = computed(() => floors.value.find((f) => f.id === activeFloorId.value) ?? null)
 
+  const floorAssetTypes = computed(() =>
+    (merged.value?.assetTypes ?? []).filter((at) => at.location === 'floor'),
+  )
+  const propertyAssetTypes = computed(() =>
+    (merged.value?.assetTypes ?? []).filter((at) => at.location === 'property'),
+  )
+  const hasRoomTypes = computed(() => (merged.value?.roomTypes.length ?? 0) > 0)
+  const hasPropertyTab = computed(
+    () =>
+      (merged.value?.propertyQuestions.length ?? 0) > 0 || propertyAssetTypes.value.length > 0,
+  )
+  const isPropertyTab = computed(() => activeFloorId.value === PROPERTY_TAB_ID)
+
   const roomsOnActiveFloor = computed(() => {
     const labels = new Map(
       (merged.value?.roomTypes ?? []).map((rt) => [rt.id, rt.label] as const),
@@ -132,6 +168,28 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       })
       .map(({ room }) => room)
   })
+
+  const assetsOnActiveFloor = computed(() =>
+    assets.value
+      .filter((asset) => asset.floorId === activeFloorId.value)
+      .slice()
+      .sort((a, b) => {
+        const typeOrder = floorAssetTypes.value.findIndex((at) => at.id === a.assetType)
+          - floorAssetTypes.value.findIndex((at) => at.id === b.assetType)
+        return typeOrder !== 0 ? typeOrder : a.id.localeCompare(b.id)
+      }),
+  )
+
+  const propertyAssets = computed(() =>
+    assets.value
+      .filter((asset) => asset.floorId == null)
+      .slice()
+      .sort((a, b) => {
+        const typeOrder = propertyAssetTypes.value.findIndex((at) => at.id === a.assetType)
+          - propertyAssetTypes.value.findIndex((at) => at.id === b.assetType)
+        return typeOrder !== 0 ? typeOrder : a.id.localeCompare(b.id)
+      }),
+  )
 
   function photosByAttributeForSubject(
     subjectType: FlowPhoto['subjectType'],
@@ -153,6 +211,20 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   function roomAnswers(roomId: string): Record<string, unknown> {
     return answersBySubject.value[subjectAnswerKey('room', roomId)] ?? {}
   }
+
+  function assetAnswers(assetId: string): Record<string, unknown> {
+    return answersBySubject.value[subjectAnswerKey('asset', assetId)] ?? {}
+  }
+
+  const addableFloorAssetTypes = computed(() => {
+    const bovenkant = propertyAnswers().bovenkant
+    const onderkant = propertyAnswers().onderkant
+    return floorAssetTypes.value.filter((at) => {
+      if (at.id === DAK_ASSET_TYPE) return bovenkant === 'buiten'
+      if (at.id === VLOER_ASSET_TYPE) return onderkant === 'grond'
+      return true
+    })
+  })
 
   const propertyCompleteness = computed(() => {
     if (!merged.value) {
@@ -199,21 +271,58 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     })
   })
 
+  const assetCompleteness = computed(() => {
+    if (!merged.value) return []
+    const property = propertyAnswers()
+    return assets.value.flatMap((asset) => {
+      try {
+        const result = evaluateMergedAssetCompleteness(
+          merged.value!,
+          asset.assetType,
+          assetAnswers(asset.id),
+          photosByAttributeForSubject('asset', asset.id),
+          property,
+        )
+        return [
+          {
+            assetId: asset.id,
+            floorId: asset.floorId,
+            missingAttributeKeys: result.missingAttributeKeys,
+            missingPhotoAttributeKeys: result.missingPhotoAttributeKeys,
+            visibleCount: result.visibleCount,
+            answeredCount: result.answeredCount,
+          },
+        ]
+      } catch {
+        return []
+      }
+    })
+  })
+
   const missingAnswerCount = computed(
     () =>
       propertyCompleteness.value.missingAttributeKeys.length +
-      roomCompleteness.value.reduce((sum, room) => sum + room.missingAttributeKeys.length, 0),
+      roomCompleteness.value.reduce((sum, room) => sum + room.missingAttributeKeys.length, 0) +
+      assetCompleteness.value.reduce((sum, asset) => sum + asset.missingAttributeKeys.length, 0),
   )
 
   const missingPhotoCount = computed(
     () =>
       propertyCompleteness.value.missingPhotoAttributeKeys.length +
-      roomCompleteness.value.reduce((sum, room) => sum + room.missingPhotoAttributeKeys.length, 0),
+      roomCompleteness.value.reduce((sum, room) => sum + room.missingPhotoAttributeKeys.length, 0) +
+      assetCompleteness.value.reduce((sum, asset) => sum + asset.missingPhotoAttributeKeys.length, 0),
   )
+
+  const requiredVloerMissing = computed(() => {
+    if (!merged.value?.assetTypes?.some((at) => at.id === VLOER_ASSET_TYPE)) return false
+    if (propertyAnswers().onderkant !== 'grond') return false
+    return !assets.value.some((asset) => asset.assetType === VLOER_ASSET_TYPE)
+  })
 
   const answersComplete = computed(
     () =>
-      rooms.value.length > 0 &&
+      (!hasRoomTypes.value || rooms.value.length > 0) &&
+      !requiredVloerMissing.value &&
       missingAnswerCount.value === 0 &&
       missingPhotoCount.value === 0,
   )
@@ -234,6 +343,15 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
           propertyPhotos: propertyId.value
             ? photosByAttributeForSubject('property', propertyId.value)
             : {},
+          assets: assets.value.map((asset) => ({ id: asset.id, assetType: asset.assetType })),
+          answersByAssetId: Object.fromEntries(
+            assets.value.map((asset) => [asset.id, assetAnswers(asset.id)] as const),
+          ),
+          photosByAssetId: Object.fromEntries(
+            assets.value.map(
+              (asset) => [asset.id, photosByAttributeForSubject('asset', asset.id)] as const,
+            ),
+          ),
         },
       ),
     ),
@@ -241,11 +359,23 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
 
   function missingKeysForSubject(subjectType: FlowPhoto['subjectType'], subjectId: string) {
     if (subjectType === 'property') return propertyCompleteness.value.missingAttributeKeys
+    if (subjectType === 'asset') {
+      return (
+        assetCompleteness.value.find((asset) => asset.assetId === subjectId)?.missingAttributeKeys ??
+        []
+      )
+    }
     return roomCompleteness.value.find((room) => room.roomId === subjectId)?.missingAttributeKeys ?? []
   }
 
   function missingPhotoKeysForSubject(subjectType: FlowPhoto['subjectType'], subjectId: string) {
     if (subjectType === 'property') return propertyCompleteness.value.missingPhotoAttributeKeys
+    if (subjectType === 'asset') {
+      return (
+        assetCompleteness.value.find((asset) => asset.assetId === subjectId)
+          ?.missingPhotoAttributeKeys ?? []
+      )
+    }
     return (
       roomCompleteness.value.find((room) => room.roomId === subjectId)?.missingPhotoAttributeKeys ??
       []
@@ -261,12 +391,58 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   }
 
   function floorHasMissingAnswers(floorId: string) {
-    return roomCompleteness.value.some(
+    const roomsMissing = roomCompleteness.value.some(
       (room) =>
         room.floorId === floorId &&
         (room.missingAttributeKeys.length > 0 || room.missingPhotoAttributeKeys.length > 0),
     )
+    const assetsMissing = assetCompleteness.value.some(
+      (asset) =>
+        asset.floorId === floorId &&
+        (asset.missingAttributeKeys.length > 0 || asset.missingPhotoAttributeKeys.length > 0),
+    )
+    return roomsMissing || assetsMissing
   }
+
+  const propertyTabHasMissing = computed(() => {
+    const propMissing =
+      propertyCompleteness.value.missingAttributeKeys.length > 0 ||
+      propertyCompleteness.value.missingPhotoAttributeKeys.length > 0
+    const assetsMissing = assetCompleteness.value.some(
+      (asset) =>
+        asset.floorId == null &&
+        (asset.missingAttributeKeys.length > 0 || asset.missingPhotoAttributeKeys.length > 0),
+    )
+    return propMissing || assetsMissing
+  })
+
+  const structureHints = computed(() => {
+    const hints: string[] = []
+    const view = merged.value
+    if (!view?.assetTypes?.length) return hints
+    const gevelType = view.assetTypes.find((at) => at.id === GEVEL_ASSET_TYPE)
+    const dakType = view.assetTypes.find((at) => at.id === DAK_ASSET_TYPE)
+    const vloerType = view.assetTypes.find((at) => at.id === VLOER_ASSET_TYPE)
+    if (gevelType) {
+      for (const floor of floors.value) {
+        const hasGevel = assets.value.some(
+          (asset) => asset.floorId === floor.id && asset.assetType === GEVEL_ASSET_TYPE,
+        )
+        if (!hasGevel) hints.push(`hintNoFacades:${floor.id}`)
+      }
+    }
+    if (dakType) {
+      const bovenkant = propertyAnswers().bovenkant
+      const hasDak = assets.value.some((asset) => asset.assetType === DAK_ASSET_TYPE)
+      if (bovenkant === 'buiten' && !hasDak) hints.push('hintRoofOutside')
+      if (bovenkant === 'verwarmdeRuimte') hints.push('hintRoofHeated')
+    }
+    if (vloerType && propertyAnswers().onderkant === 'grond') {
+      const hasVloer = assets.value.some((asset) => asset.assetType === VLOER_ASSET_TYPE)
+      if (!hasVloer) hints.push('hintFloorGround')
+    }
+    return hints
+  })
 
   function photosForQuestion(
     subjectType: FlowPhoto['subjectType'],
@@ -302,6 +478,18 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     return listMergedVisiblePropertyQuestions(merged.value, propertyAnswers())
   }
 
+  function questionsForAsset(assetId: string) {
+    if (!merged.value) return []
+    const asset = assets.value.find((a) => a.id === assetId)
+    if (!asset) return []
+    return listMergedVisibleAssetQuestions(
+      merged.value,
+      asset.assetType,
+      assetAnswers(assetId),
+      propertyAnswers(),
+    )
+  }
+
   function writeSubjectAnswers(subjectKey: string, answers: Record<string, unknown>) {
     answersBySubject.value = { ...answersBySubject.value, [subjectKey]: answers }
   }
@@ -316,11 +504,16 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       if (filled !== current) writeSubjectAnswers(key, filled)
     }
     const targets = roomId ? rooms.value.filter((room) => room.id === roomId) : rooms.value
-    if (!targets.length) return
     for (const room of targets) {
       const key = subjectAnswerKey('room', room.id)
       const current = answersBySubject.value[key] ?? {}
       const filled = applyNoneOfTheseDefaults(questionsForRoom(room.id), current)
+      if (filled !== current) writeSubjectAnswers(key, filled)
+    }
+    for (const asset of assets.value) {
+      const key = subjectAnswerKey('asset', asset.id)
+      const current = answersBySubject.value[key] ?? {}
+      const filled = applyNoneOfTheseDefaults(questionsForAsset(asset.id), current)
       if (filled !== current) writeSubjectAnswers(key, filled)
     }
   }
@@ -337,6 +530,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     templateConfigs.value = []
     floors.value = []
     rooms.value = []
+    assets.value = []
     activeFloorId.value = null
     answersBySubject.value = {}
     observationIdsByKey.value = {}
@@ -414,64 +608,66 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
   }
 
-  function toggleDraftTemplate(templateKey: string, templateVersion: string) {
-    if (inspectionId.value) return
-    if (selectedTemplates.value.some((t) => t.templateKey === templateKey)) {
-      selectedTemplates.value = selectedTemplates.value.filter((t) => t.templateKey !== templateKey)
+  const selectedTemplateKeys = computed(() =>
+    selectedTemplates.value.map((row) => row.templateKey),
+  )
+
+  async function setTemplateEnabled(
+    templateKey: string,
+    templateVersion: string,
+    enabled: boolean,
+  ) {
+    const next = nextSelectedTemplates(
+      selectedTemplates.value,
+      { templateKey, templateVersion },
+      enabled,
+    )
+    if (!next) return
+
+    if (!inspectionId.value) {
+      selectedTemplates.value = next
       return
     }
-    selectedTemplates.value = [...selectedTemplates.value, { templateKey, templateVersion }]
-  }
 
-  async function addInspectionTemplate(templateKey: string, templateVersion: string) {
-    if (selectedTemplates.value.some((t) => t.templateKey === templateKey)) return
     saving.value = true
     error.value = null
     const previous = selectedTemplates.value
+    const previousConfigs = templateConfigs.value
     try {
-      selectedTemplates.value = [...previous, { templateKey, templateVersion }]
+      if (!enabled) {
+        const mergedView = merged.value
+        const exclusiveKeys = mergedView
+          ? exclusiveAttributeKeysForTemplate(mergedView, templateKey)
+          : []
+        const exclusiveRoomTypes = mergedView
+          ? exclusiveRoomTypeIdsForTemplate(mergedView, templateKey)
+          : []
+        const exclusiveAssetTypes = mergedView
+          ? exclusiveAssetTypeIdsForTemplate(mergedView, templateKey)
+          : []
+        for (const room of rooms.value.filter((r) => exclusiveRoomTypes.includes(r.roomType))) {
+          await removeRoom(room.id)
+        }
+        for (const asset of assets.value.filter((a) => exclusiveAssetTypes.includes(a.assetType))) {
+          await removeAsset(asset.id)
+        }
+        await discardAnswersForAttributeKeys(exclusiveKeys)
+      }
+      selectedTemplates.value = next
       await loadTemplateConfigs()
-      fillChecklistDefaults()
+      if (enabled) fillChecklistDefaults()
       await persistSelectedTemplates()
     } catch (err) {
       selectedTemplates.value = previous
-      try {
-        await loadTemplateConfigs()
-      } catch {
-        templateConfigs.value = []
-      }
+      templateConfigs.value = previousConfigs
       error.value = err instanceof Error ? err.message : String(err)
       throw err
     } finally {
       saving.value = false
     }
-  }
-
-  async function removeInspectionTemplate(templateKey: string) {
-    if (selectedTemplates.value.length <= 1) return
-    if (!selectedTemplates.value.some((t) => t.templateKey === templateKey)) return
-    saving.value = true
-    error.value = null
-    try {
-      const mergedView = merged.value
-      const exclusiveKeys = mergedView
-        ? exclusiveAttributeKeysForTemplate(mergedView, templateKey)
-        : []
-      const exclusiveRoomTypes = mergedView
-        ? exclusiveRoomTypeIdsForTemplate(mergedView, templateKey)
-        : []
-      for (const room of rooms.value.filter((r) => exclusiveRoomTypes.includes(r.roomType))) {
-        await removeRoom(room.id)
-      }
-      await discardAnswersForAttributeKeys(exclusiveKeys)
-      selectedTemplates.value = selectedTemplates.value.filter((t) => t.templateKey !== templateKey)
-      await loadTemplateConfigs()
-      await persistSelectedTemplates()
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      saving.value = false
+    if (enabled) {
+      await ensureDefaultFacadesForAllFloors()
+      await ensureDefaultVloerIfNeeded()
     }
   }
 
@@ -514,7 +710,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     const hasStructure = bundleHasStructure(floors.value, rooms.value)
     step.value = chooseFlowStep({ status, hasStructure, keepStructureStep, editing })
     if (step.value === 3) {
-      activeFloorId.value = floors.value[0]?.id ?? null
+      selectDefaultChecklistTab()
     }
   }
 
@@ -539,6 +735,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
 
     floors.value = bundle.floors
     rooms.value = bundle.rooms
+    assets.value = bundle.assets
     answersBySubject.value = bundle.answersBySubject
     observationIdsByKey.value = bundle.observationIdsByKey
     fillChecklistDefaults()
@@ -557,6 +754,10 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
 
     applyChosenStep(bundle.status, opts.keepStructureStep, opts.editing)
+    if (step.value === 3) {
+      await ensureDefaultFacadesForAllFloors()
+      await ensureDefaultVloerIfNeeded()
+    }
   }
 
   async function resumeInspection(
@@ -619,6 +820,14 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
           sort_order?: number
           updated_at?: string
         }>
+        assets?: Array<{
+          id: string
+          floor_id?: string | null
+          asset_type: string
+          label: string | null
+          sort_order?: number
+          updated_at?: string
+        }>
       }>(`/api/properties/${inspection.property_id}`)
 
       const { observations } = await apiFetch<{
@@ -648,12 +857,15 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
         }>
       }>(`/api/photos?propertyId=${inspection.property_id}&inspectionId=${inspection.id}`)
 
-      const bundle = hydrateBundleFromApi({
-        inspection,
-        structure,
-        observations: observations ?? [],
-        photos: photoRows ?? [],
-      })
+      const bundle = hydrateBundleFromApi(
+        {
+          inspection,
+          structure,
+          observations: observations ?? [],
+          photos: photoRows ?? [],
+        },
+        localPreview?.inspection,
+      )
       await hydrateFlowFromBundle(bundle, {
         keepStructureStep,
         editing,
@@ -694,6 +906,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     ) {
       await addRoom(row.id, METERKAST_ROOM_TYPE_ID)
     }
+    await ensureDefaultFacades(row.id)
   }
 
   async function removeFloor(floorId: string) {
@@ -701,8 +914,11 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     await removeFloorLocal(propertyId.value, floorId)
     floors.value = floors.value.filter((f) => f.id !== floorId)
     rooms.value = rooms.value.filter((r) => r.floorId !== floorId)
+    assets.value = assets.value.filter((a) => a.floorId !== floorId)
     if (activeFloorId.value === floorId) {
-      activeFloorId.value = floors.value[0]?.id ?? null
+      activeFloorId.value = hasPropertyTab.value
+        ? PROPERTY_TAB_ID
+        : floors.value[0]?.id ?? null
     }
   }
 
@@ -761,6 +977,153 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     )
   }
 
+  async function addAsset(assetType: string, floorId?: string | null, label?: string) {
+    if (!propertyId.value) return
+    const onFloor = floorId ?? null
+    const row = await addAssetLocal({
+      propertyId: propertyId.value,
+      floorId: onFloor,
+      assetType,
+      label: label ?? null,
+      sortOrder: assets.value.filter((a) => a.floorId === onFloor && a.assetType === assetType)
+        .length,
+    })
+    assets.value.push({
+      id: row.id,
+      floorId: row.floorId,
+      assetType: row.assetType,
+      label: row.label,
+    })
+    fillChecklistDefaults()
+    return row
+  }
+
+  async function persistSubjectAnswers(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+    answers: Record<string, unknown>,
+  ) {
+    if (!propertyId.value || !inspectionId.value || !Object.keys(answers).length) return
+    const nextObsIds = { ...observationIdsByKey.value }
+    const observations = Object.entries(answers).map(([questionKey, value]) => {
+      const attributeKey = `${subjectType}.${questionKey}`
+      const mapKey = observationMapKey(subjectType, subjectId, attributeKey)
+      const id = nextObsIds[mapKey] ?? newId()
+      nextObsIds[mapKey] = id
+      return {
+        id,
+        propertyId: propertyId.value!,
+        inspectionId: inspectionId.value!,
+        attributeKey,
+        subjectType,
+        subjectId,
+        value,
+        visibility: 'private' as const,
+      }
+    })
+    observationIdsByKey.value = nextObsIds
+    await saveObservationsLocal(observations)
+  }
+
+  function floorHasDefaultGevel(floorId: string, zijde: string, label: string) {
+    return assets.value.some((asset) => {
+      if (asset.floorId !== floorId || asset.assetType !== GEVEL_ASSET_TYPE) return false
+      const answered = assetAnswers(asset.id).gevelZijde
+      const assetLabel = asset.label?.trim().toLowerCase()
+      return answered === zijde || assetLabel === label.toLowerCase()
+    })
+  }
+
+  async function ensureDefaultFacades(floorId: string) {
+    if (!merged.value?.assetTypes?.some((at) => at.id === GEVEL_ASSET_TYPE)) return
+    for (const preset of DEFAULT_GEVELS) {
+      if (floorHasDefaultGevel(floorId, preset.zijde, preset.label)) continue
+      const row = await addAsset(GEVEL_ASSET_TYPE, floorId, preset.label)
+      if (!row) continue
+      setAnswer('asset', row.id, 'gevelZijde', preset.zijde)
+      await persistSubjectAnswers('asset', row.id, assetAnswers(row.id))
+    }
+  }
+
+  async function ensureDefaultFacadesForAllFloors() {
+    for (const floor of floors.value) {
+      await ensureDefaultFacades(floor.id)
+    }
+  }
+
+  async function ensureDefaultVloerIfNeeded() {
+    if (!merged.value?.assetTypes?.some((at) => at.id === VLOER_ASSET_TYPE)) return
+    if (propertyAnswers().onderkant !== 'grond') return
+    if (assets.value.some((asset) => asset.assetType === VLOER_ASSET_TYPE)) return
+    const firstFloor = floors.value[0]
+    if (!firstFloor) return
+    await addAsset(VLOER_ASSET_TYPE, firstFloor.id)
+  }
+
+  async function removeAsset(assetId: string) {
+    if (!propertyId.value) return
+    await removeAssetLocal(propertyId.value, assetId)
+    assets.value = assets.value.filter((a) => a.id !== assetId)
+    const next = { ...answersBySubject.value }
+    delete next[subjectAnswerKey('asset', assetId)]
+    answersBySubject.value = next
+    const nextObs = { ...observationIdsByKey.value }
+    const prefix = `${subjectAnswerKey('asset', assetId)}|`
+    for (const key of Object.keys(nextObs)) {
+      if (key.startsWith(prefix)) delete nextObs[key]
+    }
+    observationIdsByKey.value = nextObs
+    const removed = photos.value.filter((p) => p.subjectType === 'asset' && p.subjectId === assetId)
+    for (const photo of removed) {
+      if (photo.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl)
+    }
+    photos.value = photos.value.filter(
+      (p) => !(p.subjectType === 'asset' && p.subjectId === assetId),
+    )
+  }
+
+  async function duplicateAsset(assetId: string) {
+    const source = assets.value.find((a) => a.id === assetId)
+    if (!source || !propertyId.value) return
+    const typeLabel =
+      merged.value?.assetTypes.find((at) => at.id === source.assetType)?.label ?? source.assetType
+    const base = source.label?.trim() || typeLabel
+    const suffix = ' (kopie)'
+    let label = `${base}${suffix}`
+    let n = 2
+    while (assets.value.some((a) => a.label === label)) {
+      label = `${base}${suffix} ${n}`
+      n += 1
+    }
+    const row = await addAsset(source.assetType, source.floorId, label)
+    if (!row) return
+    const copied = { ...assetAnswers(source.id) }
+    writeSubjectAnswers(subjectAnswerKey('asset', row.id), copied)
+    fillChecklistDefaults()
+    if (inspectionId.value && Object.keys(copied).length) {
+      const nextObsIds = { ...observationIdsByKey.value }
+      const observations = Object.entries(copied).map(([questionKey, value]) => {
+        const attributeKey = `asset.${questionKey}`
+        const mapKey = observationMapKey('asset', row.id, attributeKey)
+        const id = newId()
+        nextObsIds[mapKey] = id
+        return {
+          id,
+          propertyId: propertyId.value!,
+          inspectionId: inspectionId.value!,
+          attributeKey,
+          subjectType: 'asset' as const,
+          subjectId: row.id,
+          value,
+          visibility: 'private' as const,
+        }
+      })
+      observationIdsByKey.value = nextObsIds
+      await saveObservationsLocal(observations)
+    }
+    return row
+  }
+
   function setAnswer(
     subjectType: FlowPhoto['subjectType'],
     subjectId: string,
@@ -792,6 +1155,24 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
           ),
         )
       }
+      if (questionKey === 'onderkant') {
+        void ensureDefaultVloerIfNeeded()
+      }
+      return
+    }
+    if (subjectType === 'asset') {
+      const asset = assets.value.find((a) => a.id === subjectId)
+      if (!asset) return
+      const assetType = merged.value.assetTypes.find((at) => at.id === asset.assetType)
+      const property = propertyAnswers()
+      const cleared = assetType ? clearHiddenAssetAnswers(assetType, current, property) : current
+      writeSubjectAnswers(
+        subjectKey,
+        applyNoneOfTheseDefaults(
+          listMergedVisibleAssetQuestions(merged.value, asset.assetType, cleared, property),
+          cleared,
+        ),
+      )
       return
     }
     const room = rooms.value.find((r) => r.id === subjectId)
@@ -922,12 +1303,23 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
   }
 
-  function enterChecklist() {
-    fillChecklistDefaults()
-    step.value = 3
-    if (!activeFloorId.value || !floors.value.some((floor) => floor.id === activeFloorId.value)) {
+  function selectDefaultChecklistTab() {
+    const onKnownFloor = floors.value.some((floor) => floor.id === activeFloorId.value)
+    if (hasPropertyTab.value && !onKnownFloor) {
+      activeFloorId.value = PROPERTY_TAB_ID
+      return
+    }
+    if (!onKnownFloor) {
       activeFloorId.value = floors.value[0]?.id ?? null
     }
+  }
+
+  async function enterChecklist() {
+    fillChecklistDefaults()
+    await ensureDefaultFacadesForAllFloors()
+    await ensureDefaultVloerIfNeeded()
+    step.value = 3
+    selectDefaultChecklistTab()
   }
 
   function enterFloors() {
@@ -939,12 +1331,14 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     activeFloorId.value = floorId
   }
 
+  function selectPropertyTab() {
+    activeFloorId.value = PROPERTY_TAB_ID
+  }
+
   function goToFirstIncomplete() {
-    if (
-      propertyCompleteness.value.missingAttributeKeys.length > 0 ||
-      propertyCompleteness.value.missingPhotoAttributeKeys.length > 0
-    ) {
+    if (propertyTabHasMissing.value) {
       step.value = 3
+      activeFloorId.value = PROPERTY_TAB_ID
       void nextTick(() => {
         document.getElementById('property-questions')?.scrollIntoView({
           behavior: 'smooth',
@@ -953,12 +1347,26 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       })
       return
     }
-    const first = roomCompleteness.value.find(
+    if (requiredVloerMissing.value && floors.value[0]) {
+      step.value = 3
+      activeFloorId.value = floors.value[0].id
+      return
+    }
+    const firstRoom = roomCompleteness.value.find(
       (room) => room.missingAttributeKeys.length > 0 || room.missingPhotoAttributeKeys.length > 0,
     )
-    if (!first) return
+    if (firstRoom) {
+      step.value = 3
+      activeFloorId.value = firstRoom.floorId
+      return
+    }
+    const firstAsset = assetCompleteness.value.find(
+      (asset) => asset.missingAttributeKeys.length > 0 || asset.missingPhotoAttributeKeys.length > 0,
+    )
+    if (!firstAsset) return
     step.value = 3
-    activeFloorId.value = first.floorId
+    if (firstAsset.floorId) activeFloorId.value = firstAsset.floorId
+    else if (hasPropertyTab.value) activeFloorId.value = PROPERTY_TAB_ID
   }
 
   async function completeInspection() {
@@ -1012,9 +1420,11 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     houseNumber,
     houseNumberAddition,
     selectedTemplates,
+    selectedTemplateKeys,
     templateConfigs,
     floors,
     rooms,
+    assets,
     activeFloorId,
     answersBySubject,
     observationIdsByKey,
@@ -1025,16 +1435,28 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     error,
     merged,
     sortedRoomTypes,
+    floorAssetTypes,
+    addableFloorAssetTypes,
+    propertyAssetTypes,
+    hasRoomTypes,
+    hasPropertyTab,
+    isPropertyTab,
     activeFloor,
     roomsOnActiveFloor,
+    assetsOnActiveFloor,
+    propertyAssets,
     propertyCompleteness,
+    propertyTabHasMissing,
     roomCompleteness,
+    assetCompleteness,
+    structureHints,
     missingAnswerCount,
     missingPhotoCount,
     answersComplete,
     templateCompleteness,
     questionsForRoom,
     questionsForProperty,
+    questionsForAsset,
     missingKeysForRoom,
     missingPhotoKeysForRoom,
     missingKeysForSubject,
@@ -1042,13 +1464,12 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     photosForQuestion,
     floorHasMissingAnswers,
     selectFloor,
+    selectPropertyTab,
     goToFirstIncomplete,
     reset,
     startInspection,
     resumeInspection,
-    toggleDraftTemplate,
-    addInspectionTemplate,
-    removeInspectionTemplate,
+    setTemplateEnabled,
     hasFloorLabel,
     addFloor,
     removeFloor,
@@ -1056,6 +1477,9 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     toggleRoomType,
     addRoom,
     removeRoom,
+    addAsset,
+    removeAsset,
+    duplicateAsset,
     setAnswer,
     saveAllAnswers,
     uploadPhoto,

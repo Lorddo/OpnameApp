@@ -1,9 +1,12 @@
 import type { InspectionTemplate, QuestionBinding } from './template-schema.js'
 import {
+  evaluateAssetCompleteness,
   evaluatePropertyCompleteness,
   evaluateRoomCompleteness,
+  listVisibleAssetQuestions,
   listVisiblePropertyQuestions,
   listVisibleQuestions,
+  type AssetCompleteness,
   type PropertyCompleteness,
   type RoomCompleteness,
 } from './completeness.js'
@@ -28,8 +31,18 @@ export interface MergedRoomType {
   labelSources: Array<{ templateKey: string; label: string }>
 }
 
+export interface MergedAssetType {
+  id: string
+  label: string
+  location: 'property' | 'floor'
+  allowMultiple: boolean
+  questions: MergedQuestion[]
+  labelSources: Array<{ templateKey: string; label: string }>
+}
+
 export interface MergedInspectionView {
   roomTypes: MergedRoomType[]
+  assetTypes: MergedAssetType[]
   propertyQuestions: MergedQuestion[]
   attributes: InspectionTemplate['attributes']
   conflicts: MergeConflict[]
@@ -104,6 +117,7 @@ export function mergeTemplates(templates: InspectionTemplate[]): MergedInspectio
 
   const attributes: InspectionTemplate['attributes'] = {}
   const roomTypeMap = new Map<string, MergedRoomType>()
+  const assetTypeMap = new Map<string, MergedAssetType>()
   const propertyQuestions: MergedQuestion[] = []
   const conflicts: MergeConflict[] = []
 
@@ -140,15 +154,45 @@ export function mergeTemplates(templates: InspectionTemplate[]): MergedInspectio
         mergeQuestionIntoList(existing.questions, question, template.id, roomType.id, conflicts)
       }
     }
+
+    for (const assetType of template.assetTypes ?? []) {
+      const existing = assetTypeMap.get(assetType.id)
+      if (!existing) {
+        assetTypeMap.set(assetType.id, {
+          id: assetType.id,
+          label: assetType.label,
+          location: assetType.location,
+          allowMultiple: assetType.allowMultiple,
+          questions: assetType.questions.map((q) => ({
+            ...q,
+            sourceTemplateKeys: [template.id],
+          })),
+          labelSources: [{ templateKey: template.id, label: assetType.label }],
+        })
+        continue
+      }
+
+      existing.allowMultiple = existing.allowMultiple || assetType.allowMultiple
+      existing.labelSources.push({ templateKey: template.id, label: assetType.label })
+
+      for (const question of assetType.questions) {
+        mergeQuestionIntoList(existing.questions, question, template.id, assetType.id, conflicts)
+      }
+    }
   }
 
   const roomTypes = [...roomTypeMap.values()].map((rt) => ({
     ...rt,
     questions: [...rt.questions].sort((a, b) => a.sortOrder - b.sortOrder),
   }))
+  const assetTypes = [...assetTypeMap.values()].map((at) => ({
+    ...at,
+    questions: [...at.questions].sort((a, b) => a.sortOrder - b.sortOrder),
+  }))
 
   return {
     roomTypes,
+    assetTypes,
     propertyQuestions: [...propertyQuestions].sort((a, b) => a.sortOrder - b.sortOrder),
     attributes,
     conflicts,
@@ -226,12 +270,19 @@ function asSyntheticTemplate(
             questions: [],
           },
         ],
+    assetTypes: (merged.assetTypes ?? []).map((at) => ({
+      id: at.id,
+      label: at.label,
+      location: at.location,
+      allowMultiple: at.allowMultiple,
+      questions: at.questions,
+    })),
     propertyQuestions: merged.propertyQuestions,
   }
 }
 
 export function exclusiveAttributeKeysForTemplate(
-  merged: Pick<MergedInspectionView, 'roomTypes' | 'propertyQuestions'>,
+  merged: Pick<MergedInspectionView, 'roomTypes' | 'assetTypes' | 'propertyQuestions'>,
   templateKey: string,
 ): string[] {
   const keys = new Set<string>()
@@ -247,7 +298,23 @@ export function exclusiveAttributeKeysForTemplate(
       }
     }
   }
+  for (const at of merged.assetTypes ?? []) {
+    for (const q of at.questions) {
+      if (q.sourceTemplateKeys.length === 1 && q.sourceTemplateKeys[0] === templateKey) {
+        keys.add(q.attributeKey)
+      }
+    }
+  }
   return [...keys]
+}
+
+export function exclusiveAssetTypeIdsForTemplate(
+  merged: Pick<MergedInspectionView, 'assetTypes'>,
+  templateKey: string,
+): string[] {
+  return (merged.assetTypes ?? [])
+    .filter((at) => at.labelSources.length === 1 && at.labelSources[0]?.templateKey === templateKey)
+    .map((at) => at.id)
 }
 
 export function exclusiveRoomTypeIdsForTemplate(
@@ -305,5 +372,35 @@ export function evaluateMergedPropertyCompleteness(
     asSyntheticTemplate(merged),
     propertyAnswers,
     propertyPhotos,
+  )
+}
+
+export function listMergedVisibleAssetQuestions(
+  merged: MergedInspectionView,
+  assetTypeId: string,
+  answers: RoomAnswers,
+  propertyAnswers: RoomAnswers = {},
+) {
+  return listVisibleAssetQuestions(
+    asSyntheticTemplate(merged),
+    assetTypeId,
+    answers,
+    propertyAnswers,
+  )
+}
+
+export function evaluateMergedAssetCompleteness(
+  merged: MergedInspectionView,
+  assetTypeId: string,
+  answers: RoomAnswers,
+  photosByAttributeKey: Record<string, number> = {},
+  propertyAnswers: RoomAnswers = {},
+): AssetCompleteness {
+  return evaluateAssetCompleteness(
+    asSyntheticTemplate(merged),
+    assetTypeId,
+    answers,
+    photosByAttributeKey,
+    propertyAnswers,
   )
 }

@@ -60,6 +60,10 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
     id: room.id as string,
     room_type: room.room_type as string,
   }))
+  const assetRows = assets.map((asset) => ({
+    id: asset.id as string,
+    asset_type: asset.asset_type as string,
+  }))
 
   const completeness: Record<string, unknown> = {}
   for (const pin of pins) {
@@ -76,7 +80,7 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
     const inspectionPhotos = (photos.data ?? []).filter(
       (p) => p.source_inspection_id === pin.inspectionId,
     )
-    const { answersByRoomId, photosByRoomId, propertyAnswers, propertyPhotos } =
+    const { answersByRoomId, photosByRoomId, answersByAssetId, photosByAssetId, propertyAnswers, propertyPhotos } =
       buildCompletenessMaps(
         roomRows,
         inspectionObs.map((o) => ({
@@ -92,6 +96,7 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
           uploaded_at: (p.uploaded_at as string | null) ?? null,
         })),
         propertyId,
+        assetRows,
       )
 
     completeness[`${pin.template_key}@${pin.template_version}`] = {
@@ -101,7 +106,13 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
         roomRows.map((room) => ({ id: room.id, roomType: room.room_type })),
         answersByRoomId,
         photosByRoomId,
-        { propertyAnswers, propertyPhotos },
+        {
+          propertyAnswers,
+          propertyPhotos,
+          assets: assetRows.map((asset) => ({ id: asset.id, assetType: asset.asset_type })),
+          answersByAssetId,
+          photosByAssetId,
+        },
       ),
     }
   }

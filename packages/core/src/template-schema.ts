@@ -84,6 +84,18 @@ export const RoomTypeSchema = z.object({
 })
 export type RoomType = z.infer<typeof RoomTypeSchema>
 
+export const AssetLocationSchema = z.enum(['property', 'floor'])
+export type AssetLocation = z.infer<typeof AssetLocationSchema>
+
+export const AssetTypeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  location: AssetLocationSchema,
+  allowMultiple: z.boolean(),
+  questions: z.array(QuestionBindingSchema).default([]),
+})
+export type AssetType = z.infer<typeof AssetTypeSchema>
+
 export const InspectionTemplateSchema = z
   .object({
     id: z.string().min(1),
@@ -91,7 +103,8 @@ export const InspectionTemplateSchema = z
     label: z.string().min(1),
     locale: z.string().min(1),
     attributes: z.record(z.string(), AttributeDefinitionSchema),
-    roomTypes: z.array(RoomTypeSchema).min(1),
+    roomTypes: z.array(RoomTypeSchema).default([]),
+    assetTypes: z.array(AssetTypeSchema).optional(),
     propertyQuestions: z.array(QuestionBindingSchema).optional(),
   })
   .superRefine((template, ctx) => {
@@ -144,6 +157,37 @@ export const InspectionTemplateSchema = z
           message: `propertyQuestions attribute "${question.attributeKey}" must have answerScope "property"`,
           path: ['propertyQuestions', qIndex, 'attributeKey'],
         })
+      }
+    }
+
+    const assetTypeIds = new Set<string>()
+    for (const [index, assetType] of (template.assetTypes ?? []).entries()) {
+      if (assetTypeIds.has(assetType.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `duplicate assetType id "${assetType.id}"`,
+          path: ['assetTypes', index, 'id'],
+        })
+      }
+      assetTypeIds.add(assetType.id)
+
+      for (const [qIndex, question] of assetType.questions.entries()) {
+        const attr = template.attributes[question.attributeKey]
+        if (!attr) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `unknown attributeKey "${question.attributeKey}"`,
+            path: ['assetTypes', index, 'questions', qIndex, 'attributeKey'],
+          })
+          continue
+        }
+        if (attr.answerScope !== 'asset') {
+          ctx.addIssue({
+            code: 'custom',
+            message: `assetTypes attribute "${question.attributeKey}" must have answerScope "asset"`,
+            path: ['assetTypes', index, 'questions', qIndex, 'attributeKey'],
+          })
+        }
       }
     }
   })

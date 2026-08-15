@@ -10,6 +10,7 @@ import { emitSyncChange } from './sync-events'
 import { flushOutbox } from './sync'
 import { isBusySyncStatus } from './sync-status'
 import type {
+  LocalAsset,
   LocalFloor,
   LocalInspection,
   LocalObservation,
@@ -135,6 +136,8 @@ export async function removeFloorLocal(propertyId: string, floorId: string) {
   await db.floors.delete(floorId)
   const rooms = await db.rooms.where('floorId').equals(floorId).toArray()
   await db.rooms.bulkDelete(rooms.map((r) => r.id))
+  const assets = await db.assets.where('floorId').equals(floorId).toArray()
+  await db.assets.bulkDelete(assets.map((a) => a.id))
   await enqueueOutbox('floor.delete', floorId, { id: floorId, propertyId })
   void flushOutbox()
 }
@@ -186,6 +189,66 @@ export async function removeRoomLocal(propertyId: string, roomId: string) {
   void flushOutbox()
 }
 
+export async function addAssetLocal(input: {
+  id?: string
+  propertyId: string
+  floorId?: string | null
+  assetType: string
+  label?: string | null
+  sortOrder: number
+}): Promise<LocalAsset> {
+  const id = input.id ?? newId()
+  const row: LocalAsset = {
+    id,
+    propertyId: input.propertyId,
+    floorId: input.floorId ?? null,
+    assetType: input.assetType,
+    label: input.label ?? null,
+    sortOrder: input.sortOrder,
+    updatedAt: nowIso(),
+    syncStatus: 'pending',
+  }
+  await db.assets.put(cloneForIdb(row))
+  const dependsOn = [
+    ...(await pendingOutboxIdsFor(input.propertyId, 'property.upsert')),
+    ...(input.floorId ? await pendingOutboxIdsFor(input.floorId, 'floor.upsert') : []),
+  ]
+  await enqueueOutbox(
+    'asset.upsert',
+    id,
+    {
+      id,
+      propertyId: row.propertyId,
+      floorId: row.floorId,
+      assetType: row.assetType,
+      label: row.label,
+      sortOrder: row.sortOrder,
+    },
+    dependsOn,
+  )
+  void flushOutbox()
+  return row
+}
+
+export async function removeAssetLocal(propertyId: string, assetId: string) {
+  await db.assets.delete(assetId)
+  await enqueueOutbox('asset.delete', assetId, { id: assetId, propertyId })
+  void flushOutbox()
+}
+
+export async function duplicateAssetLocal(input: {
+  source: LocalAsset
+  label: string
+}): Promise<LocalAsset> {
+  return addAssetLocal({
+    propertyId: input.source.propertyId,
+    floorId: input.source.floorId,
+    assetType: input.source.assetType,
+    label: input.label,
+    sortOrder: input.source.sortOrder + 1,
+  })
+}
+
 export async function saveObservationsLocal(
   observations: Array<{
     id: string
@@ -220,10 +283,18 @@ export async function saveObservationsLocal(
       observations.filter((o) => o.subjectType === 'room').map((o) => o.subjectId),
     ),
   ]
+  const assetIds = [
+    ...new Set(
+      observations.filter((o) => o.subjectType === 'asset').map((o) => o.subjectId),
+    ),
+  ]
   const dependsOn = [
     ...(await pendingOutboxIdsFor(inspectionId, 'inspection.upsert')),
     ...(
       await Promise.all(roomIds.map((roomId) => pendingOutboxIdsFor(roomId, 'room.upsert')))
+    ).flat(),
+    ...(
+      await Promise.all(assetIds.map((assetId) => pendingOutboxIdsFor(assetId, 'asset.upsert')))
     ).flat(),
   ]
   await enqueueOutbox(
@@ -446,23 +517,25 @@ export async function getLocalInspectionBundle(inspectionId: string) {
   const property = await db.properties.get(inspection.propertyId)
   const floors = await db.floors.where('propertyId').equals(inspection.propertyId).toArray()
   const rooms = await db.rooms.where('propertyId').equals(inspection.propertyId).toArray()
+  const assets = await db.assets.where('propertyId').equals(inspection.propertyId).toArray()
   const observations = await db.observations.where('inspectionId').equals(inspectionId).toArray()
   const photos = await db.photos.where('sourceInspectionId').equals(inspectionId).toArray()
-  return { inspection, property, floors, rooms, observations, photos }
+  return { inspection, property, floors, rooms, assets, observations, photos }
 }
 
 /** All local rows for a property (dossier fallback when the export API is unavailable). */
 export async function getLocalPropertyBundle(propertyId: string) {
   const property = await db.properties.get(propertyId)
   if (!property) return null
-  const [floors, rooms, inspections, observations, photos] = await Promise.all([
+  const [floors, rooms, assets, inspections, observations, photos] = await Promise.all([
     db.floors.where('propertyId').equals(propertyId).toArray(),
     db.rooms.where('propertyId').equals(propertyId).toArray(),
+    db.assets.where('propertyId').equals(propertyId).toArray(),
     db.inspections.where('propertyId').equals(propertyId).toArray(),
     db.observations.where('propertyId').equals(propertyId).toArray(),
     db.photos.where('propertyId').equals(propertyId).toArray(),
   ])
-  return { property, floors, rooms, inspections, observations, photos }
+  return { property, floors, rooms, assets, inspections, observations, photos }
 }
 
 /**
@@ -472,11 +545,12 @@ export async function getLocalPropertyBundle(propertyId: string) {
 export async function cacheSyncedStructureLocal(input: {
   floors?: LocalFloor[]
   rooms?: LocalRoom[]
+  assets?: LocalAsset[]
   observations?: LocalObservation[]
   photos?: LocalPhoto[]
 }) {
   async function putIdle<T extends { id: string }>(
-    table: 'floors' | 'rooms' | 'observations' | 'photos',
+    table: 'floors' | 'rooms' | 'assets' | 'observations' | 'photos',
     row: T,
   ) {
     const existing = await db.table(table).get(row.id)
@@ -486,6 +560,7 @@ export async function cacheSyncedStructureLocal(input: {
 
   for (const row of input.floors ?? []) await putIdle('floors', row)
   for (const row of input.rooms ?? []) await putIdle('rooms', row)
+  for (const row of input.assets ?? []) await putIdle('assets', row)
   for (const row of input.observations ?? []) await putIdle('observations', row)
   for (const row of input.photos ?? []) await putIdle('photos', row)
 }
@@ -496,9 +571,10 @@ export async function cacheSyncedStructureLocal(input: {
  * Photos + photoBlobs are kept on device (ADR-018).
  */
 export async function purgePropertyLocal(propertyId: string) {
-  const [floors, rooms, inspections, observations, outbox] = await Promise.all([
+  const [floors, rooms, assets, inspections, observations, outbox] = await Promise.all([
     db.floors.where('propertyId').equals(propertyId).toArray(),
     db.rooms.where('propertyId').equals(propertyId).toArray(),
+    db.assets.where('propertyId').equals(propertyId).toArray(),
     db.inspections.where('propertyId').equals(propertyId).toArray(),
     db.observations.where('propertyId').equals(propertyId).toArray(),
     db.outbox.toArray(),
@@ -508,6 +584,7 @@ export async function purgePropertyLocal(propertyId: string) {
     propertyId,
     ...floors.map((f) => f.id),
     ...rooms.map((r) => r.id),
+    ...assets.map((a) => a.id),
     ...inspections.map((i) => i.id),
     ...observations.map((o) => o.id),
   ])
@@ -518,10 +595,11 @@ export async function purgePropertyLocal(propertyId: string) {
 
   await db.transaction(
     'rw',
-    [db.properties, db.floors, db.rooms, db.inspections, db.observations, db.outbox],
+    [db.properties, db.floors, db.rooms, db.assets, db.inspections, db.observations, db.outbox],
     async () => {
       if (observations.length) await db.observations.bulkDelete(observations.map((o) => o.id))
       if (inspections.length) await db.inspections.bulkDelete(inspections.map((i) => i.id))
+      if (assets.length) await db.assets.bulkDelete(assets.map((a) => a.id))
       if (rooms.length) await db.rooms.bulkDelete(rooms.map((r) => r.id))
       if (floors.length) await db.floors.bulkDelete(floors.map((f) => f.id))
       await db.properties.delete(propertyId)

@@ -1,0 +1,1038 @@
+{
+  "id": "epaw",
+  "version": "0.1.0",
+  "label": "EPA-w",
+  "locale": "nl-NL",
+  "attributes": {
+    "property.bovenkant": {
+      "answerScope": "property",
+      "questionKey": "bovenkant",
+      "label": "Waar grenst de bovenkant van de woning aan?",
+      "answerType": "choice",
+      "options": [
+        { "value": "verwarmdeRuimte", "label": "Verwarmde ruimte" },
+        { "value": "buiten", "label": "Buiten" },
+        { "value": "onverwarmdeRuimte", "label": "Onverwarmde ruimte" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "property.onderkant": {
+      "answerScope": "property",
+      "questionKey": "onderkant",
+      "label": "Waar grenst de onderkant van de woning aan?",
+      "answerType": "choice",
+      "options": [
+        { "value": "verwarmdeRuimte", "label": "Verwarmde ruimte" },
+        { "value": "grond", "label": "Grond" },
+        { "value": "onverwarmdeRuimte", "label": "Onverwarmde ruimte" },
+        { "value": "kruipruimte", "label": "Kruipruimte" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.orientatie": {
+      "answerScope": "asset",
+      "questionKey": "orientatie",
+      "label": "Wat is de oriëntatie?",
+      "answerType": "multiChoice",
+      "options": [
+        { "value": "N", "label": "Noord" },
+        { "value": "NO", "label": "Noord-oost" },
+        { "value": "O", "label": "Oost" },
+        { "value": "ZO", "label": "Zuid-oost" },
+        { "value": "Z", "label": "Zuid" },
+        { "value": "ZW", "label": "Zuid-west" },
+        { "value": "W", "label": "West" },
+        { "value": "NW", "label": "Noord-west" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.gevelZijde": {
+      "answerScope": "asset",
+      "questionKey": "gevelZijde",
+      "label": "Welke zijde is dit?",
+      "answerType": "choice",
+      "options": [
+        { "value": "voor", "label": "Voorgevel" },
+        { "value": "linkerzij", "label": "Linkergevel" },
+        { "value": "achter", "label": "Achtergevel" },
+        { "value": "rechterzij", "label": "Rechtergevel" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.grenstAan": {
+      "answerScope": "asset",
+      "questionKey": "grenstAan",
+      "label": "Waar grenst dit vlak aan?",
+      "answerType": "choice",
+      "options": [
+        { "value": "buitenlucht", "label": "Buitenlucht" },
+        { "value": "onverwarmdeRuimte", "label": "Onverwarmde ruimte" },
+        { "value": "aangrenzendeWoning", "label": "Aangrenzende woning" },
+        { "value": "grond", "label": "Grond" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.bouwjaarBekend": {
+      "answerScope": "asset",
+      "questionKey": "bouwjaarBekend",
+      "label": "Is het bouwjaar bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.bouwjaar": {
+      "answerScope": "asset",
+      "questionKey": "bouwjaar",
+      "label": "Wat is het bouwjaar?",
+      "answerType": "number"
+    },
+    "asset.geveltype": {
+      "answerScope": "asset",
+      "questionKey": "geveltype",
+      "label": "Wat is het geveltype?",
+      "answerType": "choice",
+      "options": [
+        { "value": "massief", "label": "Massief" },
+        { "value": "spouw", "label": "Spouw" },
+        { "value": "houtskelet", "label": "Houtskelet" },
+        { "value": "prefab", "label": "Prefab" },
+        { "value": "anders", "label": "Anders" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.isolatieAanwezig": {
+      "answerScope": "asset",
+      "questionKey": "isolatieAanwezig",
+      "label": "Is er isolatie aanwezig?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.isolatieType": {
+      "answerScope": "asset",
+      "questionKey": "isolatieType",
+      "label": "Welk isolatietype?",
+      "answerType": "text"
+    },
+    "asset.isolatieDikte": {
+      "answerScope": "asset",
+      "questionKey": "isolatieDikte",
+      "label": "Wat is de isolatiedikte (mm)?",
+      "answerType": "number",
+      "unit": "mm"
+    },
+    "asset.rcBekend": {
+      "answerScope": "asset",
+      "questionKey": "rcBekend",
+      "label": "Is de Rc-waarde bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.rcWaarde": {
+      "answerScope": "asset",
+      "questionKey": "rcWaarde",
+      "label": "Wat is de Rc-waarde?",
+      "answerType": "number",
+      "unit": "m2K/W"
+    },
+    "asset.isolatieVastgesteld": {
+      "answerScope": "asset",
+      "questionKey": "isolatieVastgesteld",
+      "label": "Hoe is de isolatie vastgesteld?",
+      "answerType": "choice",
+      "options": [
+        { "value": "zichtbaar", "label": "Zichtbaar" },
+        { "value": "bouwtekening", "label": "Bouwtekening" },
+        { "value": "factuur", "label": "Factuur" },
+        { "value": "kwaliteitsverklaring", "label": "Kwaliteitsverklaring" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.kozijn": {
+      "answerScope": "asset",
+      "questionKey": "kozijn",
+      "label": "Wat is het kozijnmateriaal?",
+      "answerType": "choice",
+      "options": [
+        { "value": "hout", "label": "Hout" },
+        { "value": "kunststof", "label": "Kunststof" },
+        { "value": "aluminium", "label": "Aluminium" },
+        { "value": "staal", "label": "Staal" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.glas": {
+      "answerScope": "asset",
+      "questionKey": "glas",
+      "label": "Welk glas zit erin?",
+      "answerType": "choice",
+      "options": [
+        { "value": "enkel", "label": "Enkel" },
+        { "value": "dubbel", "label": "Dubbel" },
+        { "value": "HR", "label": "HR" },
+        { "value": "HR+", "label": "HR+" },
+        { "value": "HR++", "label": "HR++" },
+        { "value": "triple", "label": "Triple" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.glascodeZichtbaar": {
+      "answerScope": "asset",
+      "questionKey": "glascodeZichtbaar",
+      "label": "Is de glascode zichtbaar?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.glascode": {
+      "answerScope": "asset",
+      "questionKey": "glascode",
+      "label": "Wat is de glascode?",
+      "answerType": "text"
+    },
+    "asset.dakvlak": {
+      "answerScope": "asset",
+      "questionKey": "dakvlak",
+      "label": "Op welk dakvlak zit dit?",
+      "answerType": "choice",
+      "options": [
+        { "value": "voordakvlak", "label": "Voordakvlak" },
+        { "value": "linkerdakvlak", "label": "Linkerdakvlak" },
+        { "value": "achterdakvlak", "label": "Achterdakvlak" },
+        { "value": "rechterdakvlak", "label": "Rechterdakvlak" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.zonwering": {
+      "answerScope": "asset",
+      "questionKey": "zonwering",
+      "label": "Welke zonwering is aanwezig?",
+      "answerType": "choice",
+      "options": [
+        { "value": "geen", "label": "Geen" },
+        { "value": "buiten", "label": "Buiten" },
+        { "value": "screens", "label": "Screens" },
+        { "value": "rolluik", "label": "Rolluik" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.ventilatierooster": {
+      "answerScope": "asset",
+      "questionKey": "ventilatierooster",
+      "label": "Is er een ventilatierooster?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.ventilatieroosterType": {
+      "answerScope": "asset",
+      "questionKey": "ventilatieroosterType",
+      "label": "Welk type ventilatierooster?",
+      "answerType": "text"
+    },
+    "asset.deurConstructie": {
+      "answerScope": "asset",
+      "questionKey": "deurConstructie",
+      "label": "Wat is de deurconstructie?",
+      "answerType": "choice",
+      "options": [
+        { "value": "hout", "label": "Hout" },
+        { "value": "kunststof", "label": "Kunststof" },
+        { "value": "aluminium", "label": "Aluminium" },
+        { "value": "metaal", "label": "Metaal" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.geisoleerd": {
+      "answerScope": "asset",
+      "questionKey": "geisoleerd",
+      "label": "Is de deur geïsoleerd?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.uBekend": {
+      "answerScope": "asset",
+      "questionKey": "uBekend",
+      "label": "Is de U-waarde bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.uWaarde": {
+      "answerScope": "asset",
+      "questionKey": "uWaarde",
+      "label": "Wat is de U-waarde?",
+      "answerType": "number",
+      "unit": "W/m2K"
+    },
+    "asset.dakType": {
+      "answerScope": "asset",
+      "questionKey": "dakType",
+      "label": "Wat voor dak is het?",
+      "answerType": "choice",
+      "options": [
+        { "value": "plat", "label": "Plat" },
+        { "value": "hellend", "label": "Hellend" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.dakConstructie": {
+      "answerScope": "asset",
+      "questionKey": "dakConstructie",
+      "label": "Wat is de dakconstructie?",
+      "answerType": "choice",
+      "options": [
+        { "value": "beton", "label": "Beton" },
+        { "value": "hout", "label": "Hout" },
+        { "value": "anders", "label": "Anders" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.dakBijzonderheden": {
+      "answerScope": "asset",
+      "questionKey": "dakBijzonderheden",
+      "label": "Welke bijzonderheden heeft het dak?",
+      "answerType": "multiChoice",
+      "options": [
+        { "value": "dakkapel", "label": "Dakkapel" },
+        { "value": "zonnepanelen", "label": "Zonnepanelen" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.vloerType": {
+      "answerScope": "asset",
+      "questionKey": "vloerType",
+      "label": "Wat voor vloer is het?",
+      "answerType": "choice",
+      "options": [
+        { "value": "beganeGrond", "label": "Begane grond" },
+        { "value": "kelder", "label": "Kelder" },
+        { "value": "verdieping", "label": "Verdieping" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.vloerGrenstAan": {
+      "answerScope": "asset",
+      "questionKey": "vloerGrenstAan",
+      "label": "Waar grenst de vloer aan?",
+      "answerType": "choice",
+      "options": [
+        { "value": "grond", "label": "Grond" },
+        { "value": "kruipruimte", "label": "Kruipruimte" },
+        { "value": "buitenlucht", "label": "Buitenlucht" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.fabrikantBekend": {
+      "answerScope": "asset",
+      "questionKey": "fabrikantBekend",
+      "label": "Is de fabrikant bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.fabrikant": {
+      "answerScope": "asset",
+      "questionKey": "fabrikant",
+      "label": "Wat is de fabrikant?",
+      "answerType": "text"
+    },
+    "asset.modelBekend": {
+      "answerScope": "asset",
+      "questionKey": "modelBekend",
+      "label": "Is het model bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.model": {
+      "answerScope": "asset",
+      "questionKey": "model",
+      "label": "Wat is het model?",
+      "answerType": "text"
+    },
+    "asset.vermogenBekend": {
+      "answerScope": "asset",
+      "questionKey": "vermogenBekend",
+      "label": "Is het vermogen bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.vermogen": {
+      "answerScope": "asset",
+      "questionKey": "vermogen",
+      "label": "Wat is het vermogen (kW)?",
+      "answerType": "number",
+      "unit": "kW"
+    },
+    "asset.regeling": {
+      "answerScope": "asset",
+      "questionKey": "regeling",
+      "label": "Welke regeling is aanwezig?",
+      "answerType": "choice",
+      "options": [
+        { "value": "thermostaat", "label": "Thermostaat" },
+        { "value": "klok", "label": "Klok" },
+        { "value": "zone", "label": "Zone" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.afgifte": {
+      "answerScope": "asset",
+      "questionKey": "afgifte",
+      "label": "Welke afgifte is aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        { "value": "radiatoren", "label": "Radiatoren" },
+        { "value": "vloerverwarming", "label": "Vloerverwarming" },
+        { "value": "convectoren", "label": "Convectoren" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.koelingType": {
+      "answerScope": "asset",
+      "questionKey": "koelingType",
+      "label": "Welk type koeling?",
+      "answerType": "choice",
+      "options": [
+        { "value": "split", "label": "Split" },
+        { "value": "multiSplit", "label": "Multi-split" },
+        { "value": "warmtepomp", "label": "Warmtepomp" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.aantalPanelenBekend": {
+      "answerScope": "asset",
+      "questionKey": "aantalPanelenBekend",
+      "label": "Is het aantal panelen bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.aantalPanelen": {
+      "answerScope": "asset",
+      "questionKey": "aantalPanelen",
+      "label": "Hoeveel panelen zijn er?",
+      "answerType": "number"
+    },
+    "asset.vermogenPerPaneelBekend": {
+      "answerScope": "asset",
+      "questionKey": "vermogenPerPaneelBekend",
+      "label": "Is het vermogen per paneel bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.vermogenPerPaneel": {
+      "answerScope": "asset",
+      "questionKey": "vermogenPerPaneel",
+      "label": "Wat is het vermogen per paneel (Wp)?",
+      "answerType": "number",
+      "unit": "Wp"
+    },
+    "asset.totaalWpBekend": {
+      "answerScope": "asset",
+      "questionKey": "totaalWpBekend",
+      "label": "Is het totale vermogen bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.totaalWp": {
+      "answerScope": "asset",
+      "questionKey": "totaalWp",
+      "label": "Wat is het totale vermogen (Wp)?",
+      "answerType": "number",
+      "unit": "Wp"
+    },
+    "asset.hellingshoekBekend": {
+      "answerScope": "asset",
+      "questionKey": "hellingshoekBekend",
+      "label": "Is de hellingshoek bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.hellingshoek": {
+      "answerScope": "asset",
+      "questionKey": "hellingshoek",
+      "label": "Wat is de hellingshoek (graden)?",
+      "answerType": "number",
+      "unit": "°"
+    },
+    "asset.omvormerMerkBekend": {
+      "answerScope": "asset",
+      "questionKey": "omvormerMerkBekend",
+      "label": "Is het merk van de omvormer bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.omvormerMerk": {
+      "answerScope": "asset",
+      "questionKey": "omvormerMerk",
+      "label": "Wat is het merk van de omvormer?",
+      "answerType": "text"
+    },
+    "asset.omvormerModelBekend": {
+      "answerScope": "asset",
+      "questionKey": "omvormerModelBekend",
+      "label": "Is het model van de omvormer bekend?",
+      "answerType": "choice",
+      "options": [
+        { "value": "ja", "label": "Ja" },
+        { "value": "nee", "label": "Nee" },
+        { "value": "onbekend", "label": "Onbekend" }
+      ]
+    },
+    "asset.omvormerModel": {
+      "answerScope": "asset",
+      "questionKey": "omvormerModel",
+      "label": "Wat is het model van de omvormer?",
+      "answerType": "text"
+    }
+  },
+  "roomTypes": [],
+  "propertyQuestions": [
+    { "attributeKey": "property.bovenkant", "sortOrder": 1, "photoRequired": false },
+    { "attributeKey": "property.onderkant", "sortOrder": 2, "photoRequired": false }
+  ],
+  "assetTypes": [
+    {
+      "id": "gevel",
+      "label": "Gevel",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.gevelZijde", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "asset.grenstAan", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.geveltype", "sortOrder": 5, "photoRequired": false },
+        { "attributeKey": "asset.isolatieAanwezig", "sortOrder": 6, "photoRequired": false },
+        {
+          "attributeKey": "asset.isolatieType",
+          "sortOrder": 7,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieDikte",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcBekend",
+          "sortOrder": 9,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcWaarde",
+          "sortOrder": 10,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\" AND asset.this.rcBekend = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieVastgesteld",
+          "sortOrder": 11,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "raam",
+      "label": "Raam",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.gevelZijde", "sortOrder": 1, "photoRequired": true },
+        { "attributeKey": "asset.kozijn", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.glas", "sortOrder": 3, "photoRequired": false },
+        { "attributeKey": "asset.glascodeZichtbaar", "sortOrder": 4, "photoRequired": false },
+        {
+          "attributeKey": "asset.glascode",
+          "sortOrder": 5,
+          "photoRequired": true,
+          "showWhen": "asset.this.glascodeZichtbaar = \"ja\""
+        },
+        { "attributeKey": "asset.zonwering", "sortOrder": 6, "photoRequired": false },
+        { "attributeKey": "asset.ventilatierooster", "sortOrder": 7, "photoRequired": false },
+        {
+          "attributeKey": "asset.ventilatieroosterType",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.ventilatierooster = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "dakraam",
+      "label": "Dakraam",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.dakvlak", "sortOrder": 1, "photoRequired": true },
+        { "attributeKey": "asset.kozijn", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.glas", "sortOrder": 3, "photoRequired": false },
+        { "attributeKey": "asset.glascodeZichtbaar", "sortOrder": 4, "photoRequired": false },
+        {
+          "attributeKey": "asset.glascode",
+          "sortOrder": 5,
+          "photoRequired": true,
+          "showWhen": "asset.this.glascodeZichtbaar = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "deur",
+      "label": "Deur",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.deurConstructie", "sortOrder": 1, "photoRequired": true },
+        { "attributeKey": "asset.geisoleerd", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.uBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.uWaarde",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.uBekend = \"ja\""
+        },
+        { "attributeKey": "asset.gevelZijde", "sortOrder": 5, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "dak",
+      "label": "Dak",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.dakType", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "asset.dakvlak", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.dakConstructie", "sortOrder": 3, "photoRequired": false },
+        { "attributeKey": "asset.isolatieAanwezig", "sortOrder": 4, "photoRequired": false },
+        {
+          "attributeKey": "asset.isolatieType",
+          "sortOrder": 5,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieDikte",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcBekend",
+          "sortOrder": 7,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcWaarde",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\" AND asset.this.rcBekend = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieVastgesteld",
+          "sortOrder": 9,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        { "attributeKey": "asset.dakBijzonderheden", "sortOrder": 10, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "vloer",
+      "label": "Vloer",
+      "location": "floor",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.vloerType", "sortOrder": 1, "photoRequired": false },
+        { "attributeKey": "asset.vloerGrenstAan", "sortOrder": 2, "photoRequired": false },
+        { "attributeKey": "asset.isolatieAanwezig", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.isolatieType",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieDikte",
+          "sortOrder": 5,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcBekend",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        },
+        {
+          "attributeKey": "asset.rcWaarde",
+          "sortOrder": 7,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\" AND asset.this.rcBekend = \"ja\""
+        },
+        {
+          "attributeKey": "asset.isolatieVastgesteld",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.isolatieAanwezig = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "ketel",
+      "label": "Ketel",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenBekend", "sortOrder": 7, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogen",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenBekend = \"ja\""
+        },
+        { "attributeKey": "asset.regeling", "sortOrder": 9, "photoRequired": false },
+        { "attributeKey": "asset.afgifte", "sortOrder": 10, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "warmtepomp",
+      "label": "Warmtepomp",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenBekend", "sortOrder": 7, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogen",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenBekend = \"ja\""
+        },
+        { "attributeKey": "asset.regeling", "sortOrder": 9, "photoRequired": false },
+        { "attributeKey": "asset.afgifte", "sortOrder": 10, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "stadsverwarming",
+      "label": "Stadsverwarming",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.regeling", "sortOrder": 7, "photoRequired": false },
+        { "attributeKey": "asset.afgifte", "sortOrder": 8, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "elektrisch",
+      "label": "Elektrisch",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenBekend", "sortOrder": 7, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogen",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenBekend = \"ja\""
+        },
+        { "attributeKey": "asset.regeling", "sortOrder": 9, "photoRequired": false },
+        { "attributeKey": "asset.afgifte", "sortOrder": 10, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "biomassa",
+      "label": "Biomassa",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenBekend", "sortOrder": 7, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogen",
+          "sortOrder": 8,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenBekend = \"ja\""
+        },
+        { "attributeKey": "asset.regeling", "sortOrder": 9, "photoRequired": false },
+        { "attributeKey": "asset.afgifte", "sortOrder": 10, "photoRequired": false }
+      ]
+    },
+    {
+      "id": "koeling",
+      "label": "Koeling",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.koelingType", "sortOrder": 1, "photoRequired": true },
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 2, "photoRequired": false },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 3,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 4, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 5,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenBekend", "sortOrder": 6, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogen",
+          "sortOrder": 7,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenBekend = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "pv",
+      "label": "PV",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.aantalPanelenBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.aantalPanelen",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.aantalPanelenBekend = \"ja\""
+        },
+        { "attributeKey": "asset.vermogenPerPaneelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.vermogenPerPaneel",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.vermogenPerPaneelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.totaalWpBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.totaalWp",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.totaalWpBekend = \"ja\""
+        },
+        { "attributeKey": "asset.orientatie", "sortOrder": 7, "photoRequired": false },
+        { "attributeKey": "asset.hellingshoekBekend", "sortOrder": 8, "photoRequired": false },
+        {
+          "attributeKey": "asset.hellingshoek",
+          "sortOrder": 9,
+          "photoRequired": false,
+          "showWhen": "asset.this.hellingshoekBekend = \"ja\""
+        },
+        { "attributeKey": "asset.omvormerMerkBekend", "sortOrder": 10, "photoRequired": true },
+        {
+          "attributeKey": "asset.omvormerMerk",
+          "sortOrder": 11,
+          "photoRequired": false,
+          "showWhen": "asset.this.omvormerMerkBekend = \"ja\""
+        },
+        { "attributeKey": "asset.omvormerModelBekend", "sortOrder": 12, "photoRequired": false },
+        {
+          "attributeKey": "asset.omvormerModel",
+          "sortOrder": 13,
+          "photoRequired": false,
+          "showWhen": "asset.this.omvormerModelBekend = \"ja\""
+        }
+      ]
+    },
+    {
+      "id": "zonneboiler",
+      "label": "Zonneboiler",
+      "location": "property",
+      "allowMultiple": true,
+      "questions": [
+        { "attributeKey": "asset.fabrikantBekend", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "asset.fabrikant",
+          "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "asset.this.fabrikantBekend = \"ja\""
+        },
+        { "attributeKey": "asset.modelBekend", "sortOrder": 3, "photoRequired": false },
+        {
+          "attributeKey": "asset.model",
+          "sortOrder": 4,
+          "photoRequired": false,
+          "showWhen": "asset.this.modelBekend = \"ja\""
+        },
+        { "attributeKey": "asset.bouwjaarBekend", "sortOrder": 5, "photoRequired": false },
+        {
+          "attributeKey": "asset.bouwjaar",
+          "sortOrder": 6,
+          "photoRequired": false,
+          "showWhen": "asset.this.bouwjaarBekend = \"ja\""
+        }
+      ]
+    }
+  ]
+}

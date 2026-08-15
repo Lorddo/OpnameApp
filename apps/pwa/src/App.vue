@@ -6,7 +6,9 @@ import ReloadPrompt from '@/components/ReloadPrompt.vue'
 
 <template>
   <RouterView />
-  <div class="fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-3 print:hidden">
+  <div
+    class="fixed bottom-24 right-4 z-50 flex max-w-sm flex-col gap-3 print:hidden md:bottom-4"
+  >
     <ReloadPrompt />
     <InstallPrompt />
   </div>
