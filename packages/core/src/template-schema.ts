@@ -92,6 +92,7 @@ export const InspectionTemplateSchema = z
     locale: z.string().min(1),
     attributes: z.record(z.string(), AttributeDefinitionSchema),
     roomTypes: z.array(RoomTypeSchema).min(1),
+    propertyQuestions: z.array(QuestionBindingSchema).optional(),
   })
   .superRefine((template, ctx) => {
     for (const [key, attr] of Object.entries(template.attributes)) {
@@ -124,6 +125,25 @@ export const InspectionTemplateSchema = z
             path: ['roomTypes', index, 'questions', qIndex, 'attributeKey'],
           })
         }
+      }
+    }
+
+    for (const [qIndex, question] of (template.propertyQuestions ?? []).entries()) {
+      const attr = template.attributes[question.attributeKey]
+      if (!attr) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `unknown attributeKey "${question.attributeKey}"`,
+          path: ['propertyQuestions', qIndex, 'attributeKey'],
+        })
+        continue
+      }
+      if (attr.answerScope !== 'property') {
+        ctx.addIssue({
+          code: 'custom',
+          message: `propertyQuestions attribute "${question.attributeKey}" must have answerScope "property"`,
+          path: ['propertyQuestions', qIndex, 'attributeKey'],
+        })
       }
     }
   })

@@ -15,12 +15,12 @@ describe('parseShowWhen', () => {
   })
 
   it('parses later selectors without evaluating them', () => {
-    const ast = parseShowWhen('property.this.bouwjaar >= 1990')
+    const ast = parseShowWhen('floor.this.demo = true')
     expect(ast).toMatchObject({
       type: 'comparison',
-      target: { kind: 'property.this', questionKey: 'bouwjaar' },
-      op: '>=',
-      value: 1990,
+      target: { kind: 'floor.this', questionKey: 'demo' },
+      op: '=',
+      value: true,
     })
   })
 
@@ -53,6 +53,30 @@ describe('evaluateShowWhen', () => {
     expect(evaluateShowWhen(ast, { roomAnswers: { sanitaireVoorzieningen: ['wastafel'] } })).toBe(
       false,
     )
+  })
+
+  it('evaluates property.this against propertyAnswers', () => {
+    const ast = parseShowWhen('property.this.wozWaardeOnlineOphalen = false')
+    expect(
+      evaluateShowWhen(ast, {
+        propertyAnswers: { wozWaardeOnlineOphalen: false },
+      }),
+    ).toBe(true)
+    expect(
+      evaluateShowWhen(ast, {
+        propertyAnswers: { wozWaardeOnlineOphalen: true },
+      }),
+    ).toBe(false)
+  })
+
+  it('evaluates room questions that depend on property.this', () => {
+    const ast = parseShowWhen('property.this.onderkant = "kruipruimte"')
+    expect(
+      evaluateShowWhen(ast, {
+        roomAnswers: { verwarmd: true },
+        propertyAnswers: { onderkant: 'kruipruimte' },
+      }),
+    ).toBe(true)
   })
 
   it('throws a clear error for unsupported selectors', () => {

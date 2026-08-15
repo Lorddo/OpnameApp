@@ -99,7 +99,33 @@ describe('completeness', () => {
       {},
     )
     expect(result.rooms.map((row) => row.roomId)).toEqual(['r1'])
+    expect(result.property.isComplete).toBe(true)
     expect(result.isComplete).toBe(true)
+  })
+
+  it('includes unanswered property questions in template completeness', () => {
+    const withProperty: InspectionTemplate = {
+      ...template,
+      attributes: {
+        ...template.attributes,
+        'property.woz': {
+          answerScope: 'property',
+          questionKey: 'woz',
+          label: 'WOZ?',
+          answerType: 'boolean',
+        },
+      },
+      propertyQuestions: [{ attributeKey: 'property.woz', sortOrder: 1, photoRequired: false }],
+    }
+    const missing = evaluateTemplateCompleteness(withProperty, [], {})
+    expect(missing.property.missingAttributeKeys).toEqual(['property.woz'])
+    expect(missing.isComplete).toBe(false)
+
+    const answered = evaluateTemplateCompleteness(withProperty, [], {}, {}, {
+      propertyAnswers: { woz: true },
+    })
+    expect(answered.property.isComplete).toBe(true)
+    expect(answered.isComplete).toBe(true)
   })
 
   it('defaults empty checklists with geen to none of these and skips photos', () => {

@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { useInspectionFlowStore } from '@/stores/inspection-flow'
+import { useProjectsStore } from '@/stores/projects'
 
 const emit = defineEmits<{
   start: []
 }>()
 
 const { t } = useI18n()
+const projects = useProjectsStore()
 const flow = useInspectionFlowStore()
+const { publishedTemplates } = storeToRefs(projects)
 const {
   postcode,
   postcodeIsComplete,
@@ -18,6 +22,18 @@ const {
   selectedTemplates,
   saving,
 } = storeToRefs(flow)
+
+const selectedTemplateKeys = computed(
+  () => new Set(selectedTemplates.value.map((row) => row.templateKey)),
+)
+
+function isSelected(templateKey: string) {
+  return selectedTemplateKeys.value.has(templateKey)
+}
+
+function onToggleTemplate(templateKey: string, templateVersion: string) {
+  flow.toggleDraftTemplate(templateKey, templateVersion)
+}
 </script>
 
 <template>
@@ -46,6 +62,27 @@ const {
           class="min-h-12 w-full rounded-lg border border-input px-4"
         />
       </label>
+    </div>
+
+    <div>
+      <p class="mb-1 text-sm font-medium">{{ t('flow.templates') }}</p>
+      <p class="mb-3 text-sm text-muted-foreground">{{ t('flow.templatesSelectHint') }}</p>
+      <div class="space-y-2">
+        <label
+          v-for="tpl in publishedTemplates"
+          :key="`${tpl.template_key}@${tpl.version}`"
+          class="flex min-h-12 items-center gap-3 rounded-lg border border-border px-4"
+        >
+          <input
+            type="checkbox"
+            class="size-5"
+            :checked="isSelected(tpl.template_key)"
+            :disabled="saving"
+            @click.prevent.stop="onToggleTemplate(tpl.template_key, tpl.version)"
+          />
+          <span>{{ tpl.label }} ({{ tpl.version }})</span>
+        </label>
+      </div>
     </div>
 
     <Button

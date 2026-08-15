@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { evaluateRoomCompleteness, listVisibleQuestions, parseInspectionTemplate } from './index.js'
+import {
+  evaluateRoomCompleteness,
+  evaluateTemplateCompleteness,
+  listVisiblePropertyQuestions,
+  listVisibleQuestions,
+  parseInspectionTemplate,
+} from './index.js'
 
 const templatesDir = path.resolve(
   fileURLToPath(new URL('.', import.meta.url)),
@@ -243,5 +249,59 @@ describe('WWS 0.1.0', () => {
     )
     expect(bathroom?.helpText).toMatch(/bad- of doucheruimte/)
     expect(kitchen?.helpText).toMatch(/Tegelwerk boven het aanrechtblad/)
+  })
+})
+
+describe('WWS 1.0.0', () => {
+  const wws = loadWws('wws-1.0.0.json')
+
+  it('moves pandvragen to propertyQuestions and drops the algemeen room', () => {
+    expect(wws.version).toBe('1.0.0')
+    expect(wws.roomTypes.some((rt) => rt.id === 'algemeen')).toBe(false)
+    expect(wws.propertyQuestions?.map((q) => q.attributeKey)).toEqual([
+      'property.wozWaardeOnlineOphalen',
+      'property.wozWaardeEigenschatting',
+      'property.energieLabel',
+      'property.coropGebied',
+      'property.woningKenmerken',
+      'property.woningVoorzieningen',
+      'property.specialCareHomeAanwezig',
+      'property.specialCareHome',
+      'property.laadstationsZonderParkeergelegenheidAanwezig',
+      'property.laadstationsZonderParkeergelegenheid',
+      'property.energieprestatievergoedingAanwezig',
+      'property.energieprestatievergoeding',
+    ])
+    expect(wws.attributes['property.wozWaardeOnlineOphalen']?.answerScope).toBe('property')
+    expect(wws.attributes['room.wozWaardeOnlineOphalen']).toBeUndefined()
+  })
+
+  it('hides WOZ eigenschatting until online ophalen is no', () => {
+    const keys = (answers: Record<string, unknown>) =>
+      listVisiblePropertyQuestions(wws, answers).map((q) => q.attributeKey)
+    expect(keys({})).not.toContain('property.wozWaardeEigenschatting')
+    expect(keys({ wozWaardeOnlineOphalen: true })).not.toContain('property.wozWaardeEigenschatting')
+    expect(keys({ wozWaardeOnlineOphalen: false })).toContain('property.wozWaardeEigenschatting')
+  })
+
+  it('counts property questions in template completeness', () => {
+    const incomplete = evaluateTemplateCompleteness(wws, [], {})
+    expect(incomplete.property.isComplete).toBe(false)
+    expect(incomplete.isComplete).toBe(false)
+
+    const complete = evaluateTemplateCompleteness(wws, [], {}, {}, {
+      propertyAnswers: {
+        wozWaardeOnlineOphalen: true,
+        energieLabel: false,
+        coropGebied: false,
+        woningKenmerken: ['geen'],
+        woningVoorzieningen: ['geen'],
+        specialCareHomeAanwezig: false,
+        laadstationsZonderParkeergelegenheidAanwezig: false,
+        energieprestatievergoedingAanwezig: false,
+      },
+    })
+    expect(complete.property.isComplete).toBe(true)
+    expect(complete.isComplete).toBe(true)
   })
 })

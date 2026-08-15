@@ -1,0 +1,916 @@
+{
+  "id": "wws",
+  "version": "1.0.0",
+  "label": "WWS",
+  "locale": "nl-NL",
+  "attributes": {
+    "property.wozWaardeOnlineOphalen": {
+      "answerScope": "property",
+      "questionKey": "wozWaardeOnlineOphalen",
+      "label": "Kun je de WOZ-waarde online ophalen?",
+      "answerType": "boolean"
+    },
+    "property.wozWaardeEigenschatting": {
+      "answerScope": "property",
+      "questionKey": "wozWaardeEigenschatting",
+      "label": "Wat is de geschatte WOZ-waarde?",
+      "answerType": "number",
+      "helpText": "Alleen invullen als de WOZ-waarde niet online opgehaald kan worden.",
+      "unit": "euro"
+    },
+    "property.energieLabel": {
+      "answerScope": "property",
+      "questionKey": "energieLabel",
+      "label": "Is er een energielabel?",
+      "answerType": "boolean"
+    },
+    "property.coropGebied": {
+      "answerScope": "property",
+      "questionKey": "coropGebied",
+      "label": "Ligt de woning in een COROP-gebied?",
+      "answerType": "boolean"
+    },
+    "property.woningKenmerken": {
+      "answerScope": "property",
+      "questionKey": "woningKenmerken",
+      "label": "Welke kenmerken gelden voor deze woning?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "ondertekendVoor1Juli2024",
+          "label": "Ondertekend voor 1 juli 2024"
+        },
+        {
+          "value": "bouwjaar2018Tot2022",
+          "label": "Bouwjaar 2018–2022"
+        },
+        {
+          "value": "ingrijpendeRenovatie2015Tot2019",
+          "label": "Ingrijpende renovatie 2015–2019"
+        },
+        {
+          "value": "renovatie",
+          "label": "Renovatie"
+        },
+        {
+          "value": "bijzonderMonument",
+          "label": "Bijzonder monument"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat van toepassing is.\nIngrijpende renovatie 2015–2019: de woning is in die periode ingrijpend verbouwd of heeft een functiewijziging ondergaan (bijvoorbeeld van kantoor naar woning), en de energieprestatie is gebracht op het niveau van de toen geldende nieuwbouweisen uit het Bouwbesluit.\nRenovatie:\n- Energieprestatie: het energielabel voldoet aan de richtlijnen van NTA 8800.\n- Woonoppervlakte: het bruto vloeroppervlak is vergroot, bijvoorbeeld door een uitbouw of dakkapel.\n- Voorzieningen: de woning heeft luxe of aanvullende sanitaire voorzieningen, een uitgebreidere keuken, of een aangelegde buitenruimte zoals een balkon of terras."
+    },
+    "property.woningVoorzieningen": {
+      "answerScope": "property",
+      "questionKey": "woningVoorzieningen",
+      "label": "Welke extra voorzieningen heeft de woning?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "videodeurbel",
+          "label": "Videodeurbel"
+        },
+        {
+          "value": "gehandicapteVoorzieningen",
+          "label": "Gehandicaptenvoorzieningen"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan welke extra voorzieningen bij de woning horen."
+    },
+    "property.specialCareHomeAanwezig": {
+      "answerScope": "property",
+      "questionKey": "specialCareHomeAanwezig",
+      "label": "Is er extra waarde voor special care home?",
+      "answerType": "boolean"
+    },
+    "property.specialCareHome": {
+      "answerScope": "property",
+      "questionKey": "specialCareHome",
+      "label": "Wat is de extra waarde voor special care home?",
+      "answerType": "number",
+      "helpText": "Alleen invullen als extra waarde van toepassing is.",
+      "unit": "euro"
+    },
+    "property.laadstationsZonderParkeergelegenheidAanwezig": {
+      "answerScope": "property",
+      "questionKey": "laadstationsZonderParkeergelegenheidAanwezig",
+      "label": "Zijn er laadstations zonder parkeergelegenheid?",
+      "answerType": "boolean"
+    },
+    "property.laadstationsZonderParkeergelegenheid": {
+      "answerScope": "property",
+      "questionKey": "laadstationsZonderParkeergelegenheid",
+      "label": "Wat is de waarde van laadstations zonder parkeergelegenheid?",
+      "answerType": "number",
+      "helpText": "Alleen invullen als laadstations zonder parkeergelegenheid aanwezig zijn.",
+      "unit": "euro"
+    },
+    "property.energieprestatievergoedingAanwezig": {
+      "answerScope": "property",
+      "questionKey": "energieprestatievergoedingAanwezig",
+      "label": "Is er een energieprestatievergoeding (EPV)?",
+      "answerType": "boolean"
+    },
+    "property.energieprestatievergoeding": {
+      "answerScope": "property",
+      "questionKey": "energieprestatievergoeding",
+      "label": "Wat is de energieprestatievergoeding (EPV)?",
+      "answerType": "number",
+      "helpText": "Alleen invullen als er een energieprestatievergoeding is.",
+      "unit": "euro"
+    },
+    "room.gedeeldeRuimte": {
+      "answerScope": "room",
+      "questionKey": "gedeeldeRuimte",
+      "label": "Wordt deze ruimte gedeeld door meerdere bewoners?",
+      "answerType": "boolean",
+      "helpText": "De ruimte wordt gedeeld door meerdere bewoners."
+    },
+    "room.verwarmd": {
+      "answerScope": "room",
+      "questionKey": "verwarmd",
+      "label": "Is deze ruimte verwarmd?",
+      "answerType": "boolean",
+      "helpText": "De ruimte is voorzien van een verwarmingselement, zoals een radiator of vloerverwarming."
+    },
+    "room.sanitaireVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "sanitaireVoorzieningen",
+      "label": "Welke sanitaire voorzieningen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "staandToilet",
+          "label": "Staand toilet"
+        },
+        {
+          "value": "hangToilet",
+          "label": "Hangtoilet"
+        },
+        {
+          "value": "bidetLavet",
+          "label": "Bidet/lavet"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de sanitaire voorzieningen; voeg extra foto’s toe als het niet op één beeld past.\n- Bidet/lavet telt als wastafel (1 punt). Voor een urinoir zijn geen punten geregeld."
+    },
+    "room.wastafelVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "wastafelVoorzieningen",
+      "label": "Welke wastafels zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "wastafel",
+          "label": "Wastafel"
+        },
+        {
+          "value": "meerpersoonsWastafel",
+          "label": "Meerpersoonswastafel"
+        },
+        {
+          "value": "stopcontact",
+          "label": "Stopcontact bij wastafel"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de wastafel; voeg extra foto’s toe als het niet op één beeld past.\n- Meerpersoonswastafel: minimaal 70 cm breed en voorzien van twee kranen.\n- Stopcontact: maximaal twee per (meerpersoons)wastafel."
+    },
+    "room.doucheBad": {
+      "answerScope": "room",
+      "questionKey": "doucheBad",
+      "label": "Welke douche- of badvoorzieningen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "douche",
+          "label": "Douche"
+        },
+        {
+          "value": "doucheAfscheiding",
+          "label": "Douche (volledige gemonteerde afscheiding)"
+        },
+        {
+          "value": "badStandaard",
+          "label": "Bad (standaard)"
+        },
+        {
+          "value": "badBubbel",
+          "label": "Bad (bubbelfunctie)"
+        },
+        {
+          "value": "badDouche",
+          "label": "Bad/douche"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de douche of het bad; voeg extra foto’s toe als het niet op één beeld past."
+    },
+    "room.sanitaireKranen": {
+      "answerScope": "room",
+      "questionKey": "sanitaireKranen",
+      "label": "Welke kranen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "handmengkraan",
+          "label": "Handmengkraan"
+        },
+        {
+          "value": "thermostatischMengkraan",
+          "label": "Thermostatische mengkraan"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de kranen."
+    },
+    "room.radiatorVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "radiatorVoorzieningen",
+      "label": "Welke radiatoren zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "handdoekenradiator",
+          "label": "Handdoekenradiator"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de radiator."
+    },
+    "room.meubilair": {
+      "answerScope": "room",
+      "questionKey": "meubilair",
+      "label": "Welk meubilair is aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "kast",
+          "label": "Kast"
+        },
+        {
+          "value": "ingebouwdeKastMetWastafel",
+          "label": "Ingebouwde kast met in- of opgebouwde wastafel"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van het meubilair.\n- Kastruimte: minimaal 40 cm breed en 40 cm hoog."
+    },
+    "room.waterdichteAfwerking": {
+      "answerScope": "room",
+      "questionKey": "waterdichteAfwerking",
+      "label": "Voldoet de ruimte aan de eisen voor waterdichte afwerking?",
+      "answerType": "boolean",
+      "helpText": "Een bad- of doucheruimte komt alleen in aanmerking voor punten voor extra voorzieningen indien aan alle onderstaande eisen wordt voldaan:\n- de vloer is waterdicht afgewerkt;\n- ten minste 50% van de oppervlakte heeft een vrije hoogte van minimaal 2,00 meter, gemeten vanaf de vloer tot het zichtbare plafond;\n- de wanden zijn waterdicht afgewerkt tot minimaal 1,50 meter hoogte bij een badruimte en 1,80 meter bij een doucheruimte;\n- de ruimte beschikt over een wastafel met een (tweehands)mengkraan en spiegel;\n- de ruimte beschikt over een douche of bad met aansluitpunten voor warm en koud water en is voorzien van een warm- en koudwaterkraan of mengkraan."
+    },
+    "room.gedeeldeBuitenruimte": {
+      "answerScope": "room",
+      "questionKey": "gedeeldeBuitenruimte",
+      "label": "Is dit een gemeenschappelijke buitenruimte?",
+      "answerType": "boolean",
+      "helpText": "Een gemeenschappelijke buitenruimte komt alleen in aanmerking indien wordt voldaan aan de volgende voorwaarden:\n1) De buitenruimte heeft een minimale afmeting van 2,00 meter × 1,50 meter × 1,50 meter (hoogte, breedte en diepte);\n2) Het betreft een tot het woongebouw behorende buitenruimte waartoe bewoners van ten minste twee adressen in het woongebouw op grond van de huurovereenkomst exclusieve toegang en gebruiksrecht hebben;\n3) De huurder(s) hebben toegang tot de gemeenschappelijke buitenruimte zonder gebruik te hoeven maken van vertrekken, overige ruimten of verkeersruimten die uitsluitend ter beschikking staan aan de verhuurder of aan andere huurder(s)."
+    },
+    "room.gedeeldeParkeervoorziening": {
+      "answerScope": "room",
+      "questionKey": "gedeeldeParkeervoorziening",
+      "label": "Is dit een gemeenschappelijke parkeervoorziening?",
+      "answerType": "boolean",
+      "helpText": "De ruimte wordt gedeeld door meerdere bewoners.\nEen parkeervoorziening wordt meegeteld indien deze naar haar aard onlosmakelijk met de woonruimte is verbonden.\n1) Dit is bijvoorbeeld het geval wanneer de parkeerplaats direct in verbinding staat met de woonruimte of behoort tot het adres of complex, zoals bij een gemeenschappelijke oprit of garage.\n2) Ook wordt de parkeervoorziening meegeteld indien deze volgens verkeersopvattingen of op grond van de huurovereenkomst deel uitmaakt van de gehuurde woning."
+    },
+    "room.laadpaalVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "laadpaalVoorzieningen",
+      "label": "Welke laadpaalvoorzieningen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "elektrischeLaadpaal",
+          "label": "Elektrische laadpaal"
+        },
+        {
+          "value": "gedeeldeLaadpaal",
+          "label": "Gedeelde laadpaal"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Elektrische fietsen, bromfietsen en gehandicaptenvoertuigen vallen niet onder deze specifieke laadpaalregeling. Eén of meer foto’s van de laadpaal."
+    },
+    "room.keukenblok": {
+      "answerScope": "room",
+      "questionKey": "keukenblok",
+      "label": "Hoe lang is het keukenblok?",
+      "answerType": "choice",
+      "options": [
+        {
+          "value": "lt_1m",
+          "label": "Korter dan 1 meter"
+        },
+        {
+          "value": "between_1_and_2m",
+          "label": "Tussen 1 en 2 meter"
+        },
+        {
+          "value": "gt_2m",
+          "label": "Langer dan 2 meter"
+        },
+        {
+          "value": "geen",
+          "label": "Geen keukenblok"
+        }
+      ],
+      "helpText": "Meet de lengte van het aanrechtblad. De spoelbak en ingebouwde kookplaten tellen mee als onderdeel van het aanrecht."
+    },
+    "room.kastruimteBreedte": {
+      "answerScope": "room",
+      "questionKey": "kastruimteBreedte",
+      "label": "Hoe breed is de kastruimte?",
+      "answerType": "number",
+      "helpText": "Voor twee inbouwkasten van elk minimaal 50 cm breed worden extra punten toegekend per 60 cm breedte, mits de kastruimte minimaal 60 cm hoog is.",
+      "unit": "cm"
+    },
+    "room.kookplaatInbouw": {
+      "answerScope": "room",
+      "questionKey": "kookplaatInbouw",
+      "label": "Welk type inbouwkookplaat is aanwezig?",
+      "answerType": "choice",
+      "options": [
+        {
+          "value": "gas_elektrisch",
+          "label": "Gas/elektrische kookplaat"
+        },
+        {
+          "value": "keramisch",
+          "label": "Keramische kookplaat"
+        },
+        {
+          "value": "inductie",
+          "label": "Inductiekookplaat"
+        },
+        {
+          "value": "geen",
+          "label": "Geen inbouwkookplaat"
+        }
+      ]
+    },
+    "room.keukenApparatuur": {
+      "answerScope": "room",
+      "questionKey": "keukenApparatuur",
+      "label": "Welke keukenapparatuur is aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "afzuigkap",
+          "label": "Afzuigkap"
+        },
+        {
+          "value": "gasOven",
+          "label": "Gasoven"
+        },
+        {
+          "value": "elektrischeOven",
+          "label": "Elektrische oven"
+        },
+        {
+          "value": "magnetron",
+          "label": "Magnetron"
+        },
+        {
+          "value": "magnetronCombi",
+          "label": "Magnetron-combi"
+        },
+        {
+          "value": "koelkast",
+          "label": "Koelkast"
+        },
+        {
+          "value": "diepvries",
+          "label": "Diepvries"
+        },
+        {
+          "value": "koelVriesCombi",
+          "label": "Koel-vriescombinatie"
+        },
+        {
+          "value": "vaatwasser",
+          "label": "Vaatwasser"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de apparatuur; voeg extra foto’s toe als het niet op één beeld past."
+    },
+    "room.keukenKranen": {
+      "answerScope": "room",
+      "questionKey": "keukenKranen",
+      "label": "Welke kranen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "eenGreepsMengkraan",
+          "label": "Ééngreeps mengkraan"
+        },
+        {
+          "value": "thermostatischMengkraan",
+          "label": "Thermostatische mengkraan"
+        },
+        {
+          "value": "kookwaterfunctie",
+          "label": "Kookwaterfunctie"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de kranen."
+    },
+    "room.toiletVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "toiletVoorzieningen",
+      "label": "Welke toiletten zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "hangToilet",
+          "label": "Hangtoilet"
+        },
+        {
+          "value": "staandToilet",
+          "label": "Staand toilet"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan welk toilet aanwezig is. Eén of meer foto’s van het toilet."
+    },
+    "room.klimaatVoorzieningen": {
+      "answerScope": "room",
+      "questionKey": "klimaatVoorzieningen",
+      "label": "Welke klimaatvoorzieningen zijn aanwezig?",
+      "answerType": "multiChoice",
+      "options": [
+        {
+          "value": "verwarmd",
+          "label": "Verwarmd"
+        },
+        {
+          "value": "gekoeld",
+          "label": "Gekoeld"
+        },
+        {
+          "value": "geen",
+          "label": "Geen van deze"
+        }
+      ],
+      "helpText": "Vink aan wat aanwezig is. Eén of meer foto’s van de verwarming of koeling."
+    },
+    "room.wastafel": {
+      "answerScope": "room",
+      "questionKey": "wastafel",
+      "label": "Is er een wastafel aanwezig?",
+      "answerType": "boolean"
+    }
+  },
+  "roomTypes": [
+    {
+      "id": "badkamer",
+      "label": "Badkamer",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.sanitaireVoorzieningen",
+          "sortOrder": 3,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.wastafelVoorzieningen",
+          "sortOrder": 4,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.doucheBad",
+          "sortOrder": 5,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.sanitaireKranen",
+          "sortOrder": 6,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.radiatorVoorzieningen",
+          "sortOrder": 7,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.meubilair",
+          "sortOrder": 8,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.waterdichteAfwerking",
+          "sortOrder": 9,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "balkon",
+      "label": "Balkon",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeBuitenruimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        }
+      ]
+    },
+    {
+      "id": "carport",
+      "label": "Carport",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeParkeervoorziening",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.laadpaalVoorzieningen",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "dakterras",
+      "label": "Dakterras",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeBuitenruimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        }
+      ]
+    },
+    {
+      "id": "garage",
+      "label": "Garage",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeParkeervoorziening",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.laadpaalVoorzieningen",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "hal",
+      "label": "Hal",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "keuken",
+      "label": "Keuken",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.keukenblok",
+          "sortOrder": 3,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.kastruimteBreedte",
+          "sortOrder": 4,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.kookplaatInbouw",
+          "sortOrder": 5,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.keukenApparatuur",
+          "sortOrder": 6,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.keukenKranen",
+          "sortOrder": 7,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.waterdichteAfwerking",
+          "sortOrder": 8,
+          "photoRequired": true,
+          "helpTextOverride": "Tegelwerk boven het aanrechtblad en in de kookhoek is verplicht tot een hoogte van minimaal 1,50 meter vanaf de vloer. Alleen dan kan de keuken worden meegeteld voor de puntentelling."
+        }
+      ]
+    },
+    {
+      "id": "loggia",
+      "label": "Loggia",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeBuitenruimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        }
+      ]
+    },
+    {
+      "id": "overloop",
+      "label": "Overloop",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "parkeerplaats",
+      "label": "Parkeerplaats",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeParkeervoorziening",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.laadpaalVoorzieningen",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "slaapkamer",
+      "label": "Slaapkamer",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.sanitaireVoorzieningen",
+          "sortOrder": 3,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.wastafelVoorzieningen",
+          "sortOrder": 4,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.doucheBad",
+          "sortOrder": 5,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.sanitaireKranen",
+          "sortOrder": 6,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.radiatorVoorzieningen",
+          "sortOrder": 7,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.meubilair",
+          "sortOrder": 8,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.waterdichteAfwerking",
+          "sortOrder": 9,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "toilet",
+      "label": "Toilet",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.toiletVoorzieningen",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "tuin",
+      "label": "Tuin",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeBuitenruimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        }
+      ]
+    },
+    {
+      "id": "woonkamer",
+      "label": "Woonkamer",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.klimaatVoorzieningen",
+          "sortOrder": 2,
+          "photoRequired": true
+        },
+        {
+          "attributeKey": "room.wastafel",
+          "sortOrder": 3,
+          "photoRequired": true
+        }
+      ]
+    },
+    {
+      "id": "zolder",
+      "label": "Zolder",
+      "allowMultiplePerFloor": true,
+      "questions": [
+        {
+          "attributeKey": "room.gedeeldeRuimte",
+          "sortOrder": 1,
+          "photoRequired": false
+        },
+        {
+          "attributeKey": "room.verwarmd",
+          "sortOrder": 2,
+          "photoRequired": true
+        }
+      ]
+    }
+  ],
+  "propertyQuestions": [
+    {
+      "attributeKey": "property.wozWaardeOnlineOphalen",
+      "sortOrder": 1,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.wozWaardeEigenschatting",
+      "sortOrder": 2,
+      "photoRequired": false,
+      "showWhen": "property.this.wozWaardeOnlineOphalen = false"
+    },
+    {
+      "attributeKey": "property.energieLabel",
+      "sortOrder": 3,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.coropGebied",
+      "sortOrder": 4,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.woningKenmerken",
+      "sortOrder": 5,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.woningVoorzieningen",
+      "sortOrder": 6,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.specialCareHomeAanwezig",
+      "sortOrder": 7,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.specialCareHome",
+      "sortOrder": 8,
+      "photoRequired": false,
+      "showWhen": "property.this.specialCareHomeAanwezig = true"
+    },
+    {
+      "attributeKey": "property.laadstationsZonderParkeergelegenheidAanwezig",
+      "sortOrder": 9,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.laadstationsZonderParkeergelegenheid",
+      "sortOrder": 10,
+      "photoRequired": false,
+      "showWhen": "property.this.laadstationsZonderParkeergelegenheidAanwezig = true"
+    },
+    {
+      "attributeKey": "property.energieprestatievergoedingAanwezig",
+      "sortOrder": 11,
+      "photoRequired": false
+    },
+    {
+      "attributeKey": "property.energieprestatievergoeding",
+      "sortOrder": 12,
+      "photoRequired": false,
+      "showWhen": "property.this.energieprestatievergoedingAanwezig = true"
+    }
+  ]
+}

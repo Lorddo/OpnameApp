@@ -76,20 +76,23 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
     const inspectionPhotos = (photos.data ?? []).filter(
       (p) => p.source_inspection_id === pin.inspectionId,
     )
-    const { answersByRoomId, photosByRoomId } = buildCompletenessMaps(
-      roomRows,
-      inspectionObs.map((o) => ({
-        id: o.id as string,
-        subject_id: o.subject_id as string,
-        attribute_key: String(o.attribute_key),
-        value: o.value,
-      })),
-      inspectionPhotos.map((p) => ({
-        id: p.id as string,
-        observation_id: (p.observation_id as string | null) ?? null,
-        uploaded_at: (p.uploaded_at as string | null) ?? null,
-      })),
-    )
+    const { answersByRoomId, photosByRoomId, propertyAnswers, propertyPhotos } =
+      buildCompletenessMaps(
+        roomRows,
+        inspectionObs.map((o) => ({
+          id: o.id as string,
+          subject_id: o.subject_id as string,
+          subject_type: (o.subject_type as string | undefined) ?? undefined,
+          attribute_key: String(o.attribute_key),
+          value: o.value,
+        })),
+        inspectionPhotos.map((p) => ({
+          id: p.id as string,
+          observation_id: (p.observation_id as string | null) ?? null,
+          uploaded_at: (p.uploaded_at as string | null) ?? null,
+        })),
+        propertyId,
+      )
 
     completeness[`${pin.template_key}@${pin.template_version}`] = {
       inspectionId: pin.inspectionId,
@@ -98,6 +101,7 @@ exportsRoutes.get('/properties/:id/dossier', async (c) => {
         roomRows.map((room) => ({ id: room.id, roomType: room.room_type })),
         answersByRoomId,
         photosByRoomId,
+        { propertyAnswers, propertyPhotos },
       ),
     }
   }

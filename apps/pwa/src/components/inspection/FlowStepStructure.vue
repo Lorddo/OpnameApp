@@ -15,7 +15,11 @@ const { t } = useI18n()
 const projects = useProjectsStore()
 const flow = useInspectionFlowStore()
 const { publishedTemplates } = storeToRefs(projects)
-const { selectedTemplates, floors, rooms, sortedRoomTypes, saving } = storeToRefs(flow)
+const { selectedTemplates, floors, rooms, sortedRoomTypes, saving, merged } = storeToRefs(flow)
+
+const hasPropertyQuestions = computed(
+  () => (merged.value?.propertyQuestions.length ?? 0) > 0,
+)
 
 const busy = ref(false)
 const newFloorLabel = ref('')
@@ -211,7 +215,9 @@ defineExpose({ closeDisableDialog })
 
     <Button
       variant="brand"
-      :disabled="!rooms.length || busy || saving || !selectedTemplates.length"
+      :disabled="
+        (!rooms.length && !hasPropertyQuestions) || busy || saving || !selectedTemplates.length
+      "
       @click="emit('go-checklist')"
     >
       {{ t('flow.toChecklist') }}

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   answersFromDossier,
-  answersFromObservations,
   bundleHasStructure,
   chooseFlowStep,
   hydrateBundleFromLocal,
@@ -88,22 +87,78 @@ describe('answersFromDossier', () => {
 
     expect(bundleHasStructure(dossier.floors, dossier.rooms)).toBe(true)
     expect(answersFromDossier(dossier, 'i1')).toEqual({
-      byRoom: { r1: { vloer: 'laminaat' } },
-      obsIds: { 'r1|room.vloer': 'o1' },
+      bySubject: { 'room:r1': { vloer: 'laminaat' } },
+      obsIds: { 'room:r1|room.vloer': 'o1' },
     })
   })
 
   it('fills missing answers from facts when observations are empty', () => {
-    const fromFacts = answersFromObservations([
-      {
-        source_observation_id: 'o2',
-        subject_type: 'room',
-        subject_id: 'r1',
-        attribute_key: 'room.wanden',
-        value: 'stuc',
+    const dossier: InspectionDossierPayload = {
+      property: { id: 'p1', postcode: '1234AB', house_number: '10', house_number_addition: null },
+      floors: [],
+      rooms: [],
+      inspections: [{ id: 'i1', status: 'in_progress' }],
+      observations: [],
+      facts: [
+        {
+          source_observation_id: 'o2',
+          subject_type: 'room',
+          subject_id: 'r1',
+          attribute_key: 'room.wanden',
+          value: 'stuc',
+        },
+      ],
+      photos: [],
+    }
+    expect(answersFromDossier(dossier, 'i1')).toEqual({
+      bySubject: { 'room:r1': { wanden: 'stuc' } },
+      obsIds: { 'room:r1|room.wanden': 'o2' },
+    })
+  })
+
+  it('lets inspection observations win over facts, including property answers', () => {
+    const dossier: InspectionDossierPayload = {
+      property: { id: 'p1', postcode: '1234AB', house_number: '10', house_number_addition: null },
+      floors: [],
+      rooms: [],
+      inspections: [{ id: 'i1', status: 'in_progress' }],
+      observations: [
+        {
+          id: 'o4',
+          inspection_id: 'i1',
+          subject_type: 'property',
+          subject_id: 'p1',
+          attribute_key: 'property.energieLabel',
+          value: false,
+        },
+      ],
+      facts: [
+        {
+          source_observation_id: 'o3',
+          subject_type: 'property',
+          subject_id: 'p1',
+          attribute_key: 'property.energieLabel',
+          value: true,
+        },
+        {
+          source_observation_id: 'o5',
+          subject_type: 'property',
+          subject_id: 'p1',
+          attribute_key: 'property.wozWaardeOnlineOphalen',
+          value: true,
+        },
+      ],
+      photos: [],
+    }
+    expect(answersFromDossier(dossier, 'i1')).toEqual({
+      bySubject: {
+        'property:p1': { energieLabel: false, wozWaardeOnlineOphalen: true },
       },
-    ])
-    expect(fromFacts.byRoom).toEqual({ r1: { wanden: 'stuc' } })
+      obsIds: {
+        'property:p1|property.energieLabel': 'o4',
+        'property:p1|property.wozWaardeOnlineOphalen': 'o5',
+      },
+    })
   })
 })
 
@@ -177,7 +232,7 @@ describe('hydrateBundleFromLocal', () => {
       propertyId: 'p1',
       postcode: '1234 AB',
       houseNumber: '10',
-      answersByRoom: { r1: { vloer: 'laminaat' } },
+      answersBySubject: { 'room:r1': { vloer: 'laminaat' } },
       floors: [{ id: 'f1', label: 'Begane grond', sortOrder: 0 }],
     })
   })

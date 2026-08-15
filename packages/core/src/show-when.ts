@@ -345,7 +345,8 @@ export function parseShowWhen(expression: string): ShowWhenNode {
 export type RoomAnswers = Record<string, unknown>
 
 export interface ShowWhenEvalContext {
-  roomAnswers: RoomAnswers
+  roomAnswers?: RoomAnswers
+  propertyAnswers?: RoomAnswers
 }
 
 function compare(left: unknown, op: ComparisonOp, right: ShowWhenValue): boolean {
@@ -395,14 +396,16 @@ export function evaluateShowWhen(node: ShowWhenNode, ctx: ShowWhenEvalContext): 
   const target = node.target
   const op = node.op
   const value = node.value
-  if (target.kind !== 'room.this') {
-    throw new ShowWhenEvalError(
-      `Selector "${target.kind}" is parsed but not supported in MVP evaluation`,
-    )
+  if (target.kind === 'room.this') {
+    return compare(ctx.roomAnswers?.[target.questionKey], op, value)
+  }
+  if (target.kind === 'property.this') {
+    return compare(ctx.propertyAnswers?.[target.questionKey], op, value)
   }
 
-  const left = ctx.roomAnswers[target.questionKey]
-  return compare(left, op, value)
+  throw new ShowWhenEvalError(
+    `Selector "${target.kind}" is parsed but not supported in MVP evaluation`,
+  )
 }
 
 export function isQuestionVisible(

@@ -106,10 +106,17 @@ describe('evaluateInspectionReadiness', () => {
       attribute_key: 'room.afgeslotenRuimte',
       value: false,
     }
+    const meterkast: ObservationRow = {
+      id: 'obs-meterkast',
+      subject_id: '22222222-2222-2222-2222-222222222222',
+      subject_type: 'property',
+      attribute_key: 'property.meterkastBinnendoorBereikbaar',
+      value: true,
+    }
     const result = evaluateInspectionReadiness({
       inspection: baseInspection(),
       rooms: [room],
-      observations: [obs],
+      observations: [obs, meterkast],
       photos: [],
       templates: [bbmi],
     })

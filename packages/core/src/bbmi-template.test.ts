@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   evaluateRoomCompleteness,
   evaluateTemplateCompleteness,
+  listVisiblePropertyQuestions,
   listVisibleQuestions,
   parseInspectionTemplate,
 } from './index.js'
@@ -22,10 +23,14 @@ function loadBbmi(filename: string) {
 describe('BBMI 1.0.0', () => {
   const bbmi = loadBbmi('bbmi-1.0.0.json')
 
-  it('is the published special-room checklist: room-scope only, no standard rooms', () => {
+  it('is the published special-room checklist without standard rooms', () => {
     expect(bbmi.id).toBe('bbmi')
     expect(bbmi.version).toBe('1.0.0')
-    expect(Object.values(bbmi.attributes).every((attr) => attr.answerScope === 'room')).toBe(true)
+    expect(
+      Object.values(bbmi.attributes)
+        .filter((attr) => attr.answerScope !== 'property')
+        .every((attr) => attr.answerScope === 'room'),
+    ).toBe(true)
     expect(bbmi.roomTypes.map((rt) => rt.id).sort()).toEqual(
       [
         'bergingKastAppartement',
@@ -33,7 +38,6 @@ describe('BBMI 1.0.0', () => {
         'carport',
         'erker',
         'externeBergruimte',
-        'meterkast',
         'omgebouwdeBergruimte',
         'parkeerplaats',
         'ruimteMetBalken',
@@ -46,6 +50,26 @@ describe('BBMI 1.0.0', () => {
     expect(bbmi.roomTypes.some((rt) => /woonkamer|keuken|badkamer|slaapkamer/i.test(rt.id))).toBe(
       false,
     )
+  })
+
+  it('asks meterkast questions once per property', () => {
+    expect(bbmi.roomTypes.some((rt) => rt.id === 'meterkast')).toBe(false)
+    expect(bbmi.propertyQuestions?.map((q) => q.attributeKey)).toEqual([
+      'property.meterkastBinnendoorBereikbaar',
+      'property.meterkastGedeeldeMuurHoofdgebouw',
+    ])
+    expect(bbmi.attributes['property.meterkastBinnendoorBereikbaar']?.answerScope).toBe('property')
+
+    const keys = (answers: Record<string, unknown>) =>
+      listVisiblePropertyQuestions(bbmi, answers).map((q) => q.attributeKey)
+    expect(keys({})).toEqual(['property.meterkastBinnendoorBereikbaar'])
+    expect(keys({ meterkastBinnendoorBereikbaar: true })).toEqual([
+      'property.meterkastBinnendoorBereikbaar',
+    ])
+    expect(keys({ meterkastBinnendoorBereikbaar: false })).toEqual([
+      'property.meterkastBinnendoorBereikbaar',
+      'property.meterkastGedeeldeMuurHoofdgebouw',
+    ])
   })
 
   it('requires a photo only on omgebouwde bergruimte (customer test hook)', () => {
@@ -79,9 +103,23 @@ describe('BBMI 1.0.0', () => {
         { id: 'room-2', roomType: 'woonkamer' },
       ],
       { 'room-1': { afgeslotenRuimte: false } },
+      {},
+      { propertyAnswers: { meterkastBinnendoorBereikbaar: true } },
     )
     expect(result.rooms.map((row) => row.roomId)).toEqual(['room-1'])
     expect(result.isComplete).toBe(true)
+  })
+
+  it('requires meterkast answers even without rooms', () => {
+    const incomplete = evaluateTemplateCompleteness(bbmi, [], {})
+    expect(incomplete.property.isComplete).toBe(false)
+    expect(incomplete.isComplete).toBe(false)
+
+    const complete = evaluateTemplateCompleteness(bbmi, [], {}, {}, {
+      propertyAnswers: { meterkastBinnendoorBereikbaar: true },
+    })
+    expect(complete.property.isComplete).toBe(true)
+    expect(complete.isComplete).toBe(true)
   })
 
   it('flags the test photo hook when omgebouwde bergruimte has no photo', () => {

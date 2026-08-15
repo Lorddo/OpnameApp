@@ -1,6 +1,6 @@
 /** Pure helpers for loading an existing inspection into the flow (dossier / resume). */
 
-import { attributeQuestionKey } from '@opnameapp/core'
+import { attributeQuestionKey, observationMapKey, subjectAnswerKey } from '@opnameapp/core'
 import { getDeviceId } from '@/db/device-id'
 import { nowIso } from '@/db/ids'
 import { isBusySyncStatus } from '@/db/sync-status'
@@ -13,7 +13,7 @@ import type {
   LocalRoom,
 } from '@/db/types'
 
-export { attributeQuestionKey }
+export { attributeQuestionKey, observationMapKey as obsMapKey, subjectAnswerKey }
 
 export type ObservationLike = {
   id?: string
@@ -89,7 +89,8 @@ export type LocalInspectionBundle = {
 
 export type HydratePhotoRef = {
   id: string
-  roomId: string
+  subjectType: LocalObservation['subjectType']
+  subjectId: string
   attributeKey: string
   observationId: string | null
 }
@@ -105,7 +106,7 @@ export type HydrateBundle = {
   houseNumberAddition: string
   floors: Array<{ id: string; label: string; sortOrder: number }>
   rooms: Array<{ id: string; floorId: string; roomType: string; label: string | null }>
-  answersByRoom: Record<string, Record<string, unknown>>
+  answersBySubject: Record<string, Record<string, unknown>>
   observationIdsByKey: Record<string, string>
   photos: HydratePhotoRef[]
   structureToCache?: {
@@ -151,10 +152,6 @@ export type ApiResumePayload = {
   }>
 }
 
-export function obsMapKey(roomId: string, attributeKey: string) {
-  return `${roomId}|${attributeKey}`
-}
-
 export function bundleHasStructure(
   floors: Array<unknown> | undefined,
   rooms: Array<unknown> | undefined,
@@ -194,24 +191,25 @@ export function observationsForInspection(rows: ObservationLike[], inspectionId:
 }
 
 export function answersFromObservations(rows: ObservationLike[]) {
-  const byRoom: Record<string, Record<string, unknown>> = {}
+  const bySubject: Record<string, Record<string, unknown>> = {}
   const obsIds: Record<string, string> = {}
   for (const obs of rows) {
     const subjectType = obs.subject_type ?? obs.subjectType
-    if (subjectType !== 'room') continue
+    if (!isSubjectType(subjectType)) continue
     const subjectId = String(obs.subject_id ?? obs.subjectId ?? '')
     const attributeKey = String(obs.attribute_key ?? obs.attributeKey ?? '')
     const id = obs.id ?? obs.source_observation_id
     if (!subjectId || !attributeKey) continue
-    const mapKey = obsMapKey(subjectId, attributeKey)
+    const mapKey = observationMapKey(subjectType, subjectId, attributeKey)
     if (id && !obsIds[mapKey]) obsIds[mapKey] = id
     const questionKey = attributeQuestionKey(attributeKey)
-    if (!byRoom[subjectId]) byRoom[subjectId] = {}
-    if (!(questionKey in byRoom[subjectId]!)) {
-      byRoom[subjectId]![questionKey] = obs.value
+    const subjectKey = subjectAnswerKey(subjectType, subjectId)
+    if (!bySubject[subjectKey]) bySubject[subjectKey] = {}
+    if (!(questionKey in bySubject[subjectKey]!)) {
+      bySubject[subjectKey]![questionKey] = obs.value
     }
   }
-  return { byRoom, obsIds }
+  return { bySubject, obsIds }
 }
 
 /** Observations win over facts for the same question; facts fill gaps. */
@@ -220,15 +218,15 @@ export function answersFromDossier(dossier: InspectionDossierPayload, inspection
     observationsForInspection(dossier.observations ?? [], inspectionId),
   )
   const fromFacts = answersFromObservations(dossier.facts ?? [])
-  const byRoom: Record<string, Record<string, unknown>> = { ...fromFacts.byRoom }
+  const bySubject: Record<string, Record<string, unknown>> = { ...fromFacts.bySubject }
   const obsIds: Record<string, string> = { ...fromFacts.obsIds }
-  for (const [roomId, answers] of Object.entries(fromObs.byRoom)) {
-    byRoom[roomId] = { ...(byRoom[roomId] ?? {}), ...answers }
+  for (const [subjectKey, answers] of Object.entries(fromObs.bySubject)) {
+    bySubject[subjectKey] = { ...(bySubject[subjectKey] ?? {}), ...answers }
   }
   for (const [key, id] of Object.entries(fromObs.obsIds)) {
     obsIds[key] = id
   }
-  return { byRoom, obsIds }
+  return { bySubject, obsIds }
 }
 
 function isSubjectType(value: unknown): value is LocalObservation['subjectType'] {
@@ -243,10 +241,11 @@ function photosFromLocal(
   for (const row of photos) {
     if (!row.observationId) continue
     const obs = observations.find((o) => o.id === row.observationId)
-    if (!obs || obs.subjectType !== 'room') continue
+    if (!obs) continue
     loaded.push({
       id: row.id,
-      roomId: obs.subjectId,
+      subjectType: obs.subjectType,
+      subjectId: obs.subjectId,
       attributeKey: obs.attributeKey,
       observationId: row.observationId,
     })
@@ -259,18 +258,22 @@ function photosFromLinkedRows(
     id: string
     observation_id: string | null
     subject_id?: string | null
+    subject_type?: string | null
   }>,
   obsById: Map<string, ObservationLike>,
 ): HydratePhotoRef[] {
   const loaded: HydratePhotoRef[] = []
   for (const row of photos) {
     const obs = row.observation_id ? obsById.get(row.observation_id) : undefined
-    const roomId = String(obs?.subject_id ?? obs?.subjectId ?? row.subject_id ?? '')
+    const subjectTypeRaw = obs?.subject_type ?? obs?.subjectType ?? row.subject_type
+    const subjectType = isSubjectType(subjectTypeRaw) ? subjectTypeRaw : 'room'
+    const subjectId = String(obs?.subject_id ?? obs?.subjectId ?? row.subject_id ?? '')
     const attributeKey = String(obs?.attribute_key ?? obs?.attributeKey ?? '')
-    if (!roomId || !attributeKey) continue
+    if (!subjectId || !attributeKey) continue
     loaded.push({
       id: row.id,
-      roomId,
+      subjectType,
+      subjectId,
       attributeKey,
       observationId: row.observation_id,
     })
@@ -299,7 +302,7 @@ export function hydrateBundleFromLocal(local: LocalInspectionBundle): HydrateBun
       roomType: r.roomType,
       label: r.label,
     })),
-    answersByRoom: mapped.byRoom,
+    answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLocal(local.photos, local.observations),
   }
@@ -358,7 +361,7 @@ export function hydrateBundleFromDossier(
     houseNumberAddition: dossier.property.house_number_addition ?? '',
     floors,
     rooms,
-    answersByRoom: mapped.byRoom,
+    answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLinkedRows(dossier.photos ?? [], obsById),
   }
@@ -461,7 +464,7 @@ export function hydrateBundleFromApi(payload: ApiResumePayload): HydrateBundle {
     houseNumberAddition: structure.property.house_number_addition ?? '',
     floors,
     rooms,
-    answersByRoom: mapped.byRoom,
+    answersBySubject: mapped.bySubject,
     observationIdsByKey: mapped.obsIds,
     photos: photosFromLinkedRows(photos ?? [], obsById),
     structureToCache: {

@@ -131,6 +131,20 @@
       "label": "Is de kast direct verbonden aan de woning/appartement?",
       "answerType": "boolean",
       "helpText": "Direct verbonden aan de woning of het appartement."
+    },
+    "property.meterkastBinnendoorBereikbaar": {
+      "answerScope": "property",
+      "questionKey": "meterkastBinnendoorBereikbaar",
+      "label": "Is de meterkast binnendoor bereikbaar vanuit het hoofdgebouw?",
+      "answerType": "boolean",
+      "helpText": "Kan de meterkast vanuit het hoofdgebouw bediend worden. Ja = binnendoor bereikbaar. Nee = alleen bereikbaar via de open lucht."
+    },
+    "property.meterkastGedeeldeMuurHoofdgebouw": {
+      "answerScope": "property",
+      "questionKey": "meterkastGedeeldeMuurHoofdgebouw",
+      "label": "Heeft de meterkast een gedeelde muur met het hoofdgebouw?",
+      "answerType": "boolean",
+      "helpText": "Gedeelde muur met het hoofdgebouw."
     }
   },
   "roomTypes": [
@@ -316,25 +330,19 @@
       "questions": [
         { "attributeKey": "room.afsluitbaarComplex", "sortOrder": 1, "photoRequired": false }
       ]
+    }
+  ],
+  "propertyQuestions": [
+    {
+      "attributeKey": "property.meterkastBinnendoorBereikbaar",
+      "sortOrder": 1,
+      "photoRequired": false
     },
     {
-      "id": "meterkast",
-      "label": "Meterkast",
-      "allowMultiplePerFloor": true,
-      "questions": [
-        {
-          "attributeKey": "room.binnendoorBereikbaar",
-          "sortOrder": 1,
-          "photoRequired": false,
-          "helpTextOverride": "Kan de meterkast vanuit het hoofdgebouw bediend worden."
-        },
-        {
-          "attributeKey": "room.gedeeldeMuurHoofdgebouw",
-          "sortOrder": 2,
-          "photoRequired": false,
-          "showWhen": "room.this.binnendoorBereikbaar = false"
-        }
-      ]
+      "attributeKey": "property.meterkastGedeeldeMuurHoofdgebouw",
+      "sortOrder": 2,
+      "photoRequired": false,
+      "showWhen": "property.this.meterkastBinnendoorBereikbaar = false"
     }
   ]
 }

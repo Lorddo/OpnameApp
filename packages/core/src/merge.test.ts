@@ -177,4 +177,23 @@ describe('mergeTemplates', () => {
     expect(question?.photoRequired).toBe(true)
     expect(question?.photoRequiredWhen).toBe('always')
   })
+
+  it('merges propertyQuestions independently of rooms', () => {
+    const withProperty: InspectionTemplate = {
+      ...wws,
+      attributes: {
+        ...wws.attributes,
+        'property.woz': {
+          answerScope: 'property',
+          questionKey: 'woz',
+          label: 'WOZ?',
+          answerType: 'boolean',
+        },
+      },
+      propertyQuestions: [{ attributeKey: 'property.woz', sortOrder: 1, photoRequired: false }],
+    }
+    const merged = mergeTemplates([bbmi, withProperty])
+    expect(merged.propertyQuestions.map((q) => q.attributeKey)).toEqual(['property.woz'])
+    expect(merged.conflicts.filter((c) => c.roomTypeId === 'property')).toEqual([])
+  })
 })

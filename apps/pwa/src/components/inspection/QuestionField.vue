@@ -8,13 +8,16 @@ import {
   NONE_OPTION,
   attributeQuestionKey,
   isPhotoRequired,
+  observationMapKey,
+  subjectAnswerKey,
   withNoneOfTheseDefault,
 } from '@opnameapp/core'
 import type { VisibleQuestion } from '@opnameapp/core'
 import { useInspectionFlowStore } from '@/stores/inspection-flow'
 
 const props = defineProps<{
-  roomId: string
+  subjectType: 'property' | 'room'
+  subjectId: string
   question: VisibleQuestion
   helpActive: boolean
   canUseCamera: boolean
@@ -29,13 +32,17 @@ const flow = useInspectionFlowStore()
 const { saving, uploadingPhotoKey } = storeToRefs(flow)
 
 const qKey = computed(() => attributeQuestionKey(props.question.attributeKey))
+const subjectKey = computed(() => subjectAnswerKey(props.subjectType, props.subjectId))
+const photoKey = computed(() =>
+  observationMapKey(props.subjectType, props.subjectId, props.question.attributeKey),
+)
 
 function answerModel() {
-  return flow.answersByRoom[props.roomId]?.[qKey.value] ?? null
+  return flow.answersBySubject[subjectKey.value]?.[qKey.value] ?? null
 }
 
 function onAnswer(value: unknown) {
-  flow.setAnswer(props.roomId, qKey.value, value)
+  flow.setAnswer(props.subjectType, props.subjectId, qKey.value, value)
 }
 
 function selectedValues(value: unknown, options?: Array<{ value: string }>): string[] {
@@ -59,15 +66,19 @@ function onToggleMultiChoice(optionValue: string, options?: Array<{ value: strin
 }
 
 function isMissing() {
-  return flow.missingKeysForRoom(props.roomId).includes(props.question.attributeKey)
+  return flow
+    .missingKeysForSubject(props.subjectType, props.subjectId)
+    .includes(props.question.attributeKey)
 }
 
 function isMissingPhoto() {
-  return flow.missingPhotoKeysForRoom(props.roomId).includes(props.question.attributeKey)
+  return flow
+    .missingPhotoKeysForSubject(props.subjectType, props.subjectId)
+    .includes(props.question.attributeKey)
 }
 
 function isUploadingPhoto() {
-  return uploadingPhotoKey.value === `${props.roomId}|${props.question.attributeKey}`
+  return uploadingPhotoKey.value === photoKey.value
 }
 
 async function onPhotoSelected(event: Event) {
@@ -75,7 +86,7 @@ async function onPhotoSelected(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  await flow.uploadPhoto(props.roomId, props.question.attributeKey, file)
+  await flow.uploadPhoto(props.subjectType, props.subjectId, props.question.attributeKey, file)
 }
 
 function onHelpClick() {
@@ -135,7 +146,7 @@ function onHelpClick() {
         <input
           type="radio"
           class="size-5"
-          :name="`${roomId}:${question.attributeKey}`"
+          :name="`${subjectType}:${subjectId}:${question.attributeKey}`"
           :value="opt.value"
           :checked="answerModel() === opt.value"
           @change="onAnswer(opt.value)"
@@ -189,11 +200,11 @@ function onHelpClick() {
         </span>
       </div>
       <div
-        v-if="flow.photosForQuestion(roomId, question.attributeKey).length"
+        v-if="flow.photosForQuestion(subjectType, subjectId, question.attributeKey).length"
         class="flex flex-wrap gap-2"
       >
         <img
-          v-for="photo in flow.photosForQuestion(roomId, question.attributeKey)"
+          v-for="photo in flow.photosForQuestion(subjectType, subjectId, question.attributeKey)"
           :key="photo.id"
           :src="photo.previewUrl ?? undefined"
           :alt="t('flow.photoAlt')"

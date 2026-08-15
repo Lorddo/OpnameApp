@@ -100,13 +100,13 @@ function observationIdOf(row: DossierObservation) {
   return row.source_observation_id ?? row.id ?? null
 }
 
-function answersForRoom(roomId: string): AnswerRow[] {
+function answersForSubject(subjectType: string, subjectId: string): AnswerRow[] {
   const facts = dossier.value?.facts ?? []
   const observations = dossier.value?.observations ?? []
   const rows = facts.length ? facts : observations
   const byKey = new Map<string, AnswerRow>()
   for (const row of rows) {
-    if (row.subject_type !== 'room' || row.subject_id !== roomId) continue
+    if (row.subject_type !== subjectType || row.subject_id !== subjectId) continue
     byKey.set(row.attribute_key, {
       observationId: observationIdOf(row),
       attribute_key: row.attribute_key,
@@ -116,25 +116,40 @@ function answersForRoom(roomId: string): AnswerRow[] {
   return [...byKey.values()]
 }
 
-function photosForAnswer(roomId: string, answer: AnswerRow) {
+function answersForRoom(roomId: string): AnswerRow[] {
+  return answersForSubject('room', roomId)
+}
+
+function photosForPropertyAnswer(answer: AnswerRow) {
+  const id = dossier.value?.property.id
+  if (!id) return []
+  return photosForAnswer(id, answer, 'property')
+}
+
+function photosForAnswer(subjectId: string, answer: AnswerRow, subjectType = 'room') {
   const photos = dossier.value?.photos ?? []
   if (answer.observationId) {
     const linked = photos.filter((p) => p.observation_id === answer.observationId)
     if (linked.length) return linked
   }
 
-  // Fallback when facts/observations drifted: resolve via observation attribute.
   const observations = dossier.value?.observations ?? []
   return photos.filter((photo) => {
     if (!photo.observation_id) return false
     const obs = observations.find((o) => o.id === photo.observation_id)
     return (
-      obs?.subject_type === 'room' &&
-      obs.subject_id === roomId &&
+      obs?.subject_type === subjectType &&
+      obs.subject_id === subjectId &&
       obs.attribute_key === answer.attribute_key
     )
   })
 }
+
+const propertyAnswers = computed(() => {
+  const id = dossier.value?.property.id
+  if (!id) return []
+  return answersForSubject('property', id)
+})
 
 const floorsWithRooms = computed(() => {
   if (!dossier.value) return []
@@ -160,19 +175,30 @@ const completenessEntries = computed((): CompletenessEntry[] => {
   return templates.value.map((tpl) => {
     const answersByRoom: Record<string, Record<string, unknown>> = {}
     const photosByRoom: Record<string, Record<string, number>> = {}
+    const propertyAnswers: Record<string, unknown> = {}
+    const propertyPhotos: Record<string, number> = {}
     for (const room of payload.rooms) {
       answersByRoom[room.id] = {}
       photosByRoom[room.id] = {}
     }
     for (const obs of payload.observations) {
-      if (obs.subject_type !== 'room') continue
       const key = attributeQuestionKey(obs.attribute_key)
+      if (obs.subject_type === 'property') {
+        propertyAnswers[key] = obs.value
+        continue
+      }
+      if (obs.subject_type !== 'room') continue
       answersByRoom[obs.subject_id] ??= {}
       answersByRoom[obs.subject_id]![key] = obs.value
     }
     for (const photo of payload.photos) {
       const obs = payload.observations.find((row) => row.id === photo.observation_id)
-      if (!obs || obs.subject_type !== 'room') continue
+      if (!obs) continue
+      if (obs.subject_type === 'property') {
+        propertyPhotos[obs.attribute_key] = (propertyPhotos[obs.attribute_key] ?? 0) + 1
+        continue
+      }
+      if (obs.subject_type !== 'room') continue
       photosByRoom[obs.subject_id] ??= {}
       photosByRoom[obs.subject_id]![obs.attribute_key] =
         (photosByRoom[obs.subject_id]![obs.attribute_key] ?? 0) + 1
@@ -182,6 +208,7 @@ const completenessEntries = computed((): CompletenessEntry[] => {
       payload.rooms.map((room) => ({ id: room.id, roomType: room.room_type })),
       answersByRoom,
       photosByRoom,
+      { propertyAnswers, propertyPhotos },
     )
   })
 })
@@ -282,6 +309,40 @@ function statusLabel(status: string) {
         :status-label="statusLabel"
         :format-date="formatDate"
       />
+      <div
+        v-if="propertyAnswers.length"
+        class="rounded-xl border border-border bg-card p-5 print:bg-white print:shadow-none"
+      >
+        <h2 class="mb-4 text-xl font-semibold">{{ t('flow.propertyQuestions') }}</h2>
+        <dl class="space-y-3">
+          <div v-for="answer in propertyAnswers" :key="answer.attribute_key" class="space-y-2">
+            <div class="grid gap-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+              <dt class="text-sm text-muted-foreground">{{ attrLabel(answer.attribute_key) }}</dt>
+              <dd class="font-medium">{{ formatValue(answer.attribute_key, answer.value) }}</dd>
+            </div>
+            <div
+              v-if="photosForPropertyAnswer(answer).length"
+              class="flex flex-wrap gap-2 sm:pl-[calc(58.3%+0.25rem)]"
+            >
+              <a
+                v-for="photo in photosForPropertyAnswer(answer)"
+                :key="photo.id"
+                :href="photoPreviewUrls[photo.id]"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block"
+              >
+                <img
+                  v-if="photoPreviewUrls[photo.id]"
+                  :src="photoPreviewUrls[photo.id]"
+                  :alt="t('flow.photoAlt')"
+                  class="h-[250px] w-[250px] rounded-lg border border-border object-cover"
+                />
+              </a>
+            </div>
+          </div>
+        </dl>
+      </div>
       <DossierFloorSection
         v-for="floor in floorsWithRooms"
         :key="floor.id"

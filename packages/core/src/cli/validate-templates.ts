@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { safeParseInspectionTemplate } from '../template-schema.js'
+import { mergeTemplates, safeParseInspectionTemplate, type InspectionTemplate } from '../index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const templatesRoot = path.resolve(__dirname, '../../../../templates')
@@ -28,6 +28,7 @@ async function main() {
   }
 
   let failed = 0
+  const parsed: InspectionTemplate[] = []
   for (const file of files.sort()) {
     const relative = path.relative(templatesRoot, file)
     const raw = await readFile(file, 'utf8')
@@ -50,7 +51,27 @@ async function main() {
       continue
     }
 
+    parsed.push(result.data)
     console.log(`OK    ${relative} (${result.data.id}@${result.data.version})`)
+  }
+
+  const bbmi = parsed.find((t) => t.id === 'bbmi' && t.version === '1.0.0')
+  const wws = parsed.find((t) => t.id === 'wws' && t.version === '1.0.0')
+  if (bbmi && wws) {
+    const merged = mergeTemplates([bbmi, wws])
+    if (merged.conflicts.length) {
+      failed += 1
+      console.error(`FAIL  merge bbmi@1.0.0 + wws@1.0.0 (${merged.conflicts.length} conflict(s))`)
+      for (const conflict of merged.conflicts) {
+        console.error(
+          `  - ${conflict.kind} ${conflict.roomTypeId} ${conflict.attributeKey}: ${JSON.stringify(conflict.values)}`,
+        )
+      }
+    } else {
+      console.log(
+        `OK    merge bbmi@1.0.0 + wws@1.0.0 (${merged.propertyQuestions.length} property questions, ${merged.roomTypes.length} room types)`,
+      )
+    }
   }
 
   if (failed > 0) {

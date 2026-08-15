@@ -17,7 +17,7 @@ const router = useRouter()
 const projects = useProjectsStore()
 const flow = useInspectionFlowStore()
 const { publishedTemplates } = storeToRefs(projects)
-const { step, selectedTemplates, loading, error } = storeToRefs(flow)
+const { step, loading, error } = storeToRefs(flow)
 
 const canUseCamera = ref(false)
 const structureStep = ref<InstanceType<typeof FlowStepStructure> | null>(null)
@@ -42,15 +42,6 @@ onMounted(async () => {
       await flow.resumeInspection(resumeId)
     }
     return
-  }
-
-  if (!selectedTemplates.value.length && publishedTemplates.value[0]) {
-    selectedTemplates.value = [
-      {
-        templateKey: publishedTemplates.value[0].template_key,
-        templateVersion: publishedTemplates.value[0].version,
-      },
-    ]
   }
 })
 

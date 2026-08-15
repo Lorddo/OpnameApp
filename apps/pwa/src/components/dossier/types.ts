@@ -57,6 +57,11 @@ export type CompletenessEntry = {
   isComplete: boolean
   missingAnswerCount: number
   missingPhotoCount: number
+  property?: {
+    isComplete: boolean
+    missingAttributeKeys?: string[]
+    missingPhotoAttributeKeys?: string[]
+  }
   rooms: CompletenessRoom[]
 }
 export type DossierPayload = {

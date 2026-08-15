@@ -234,4 +234,72 @@ describe('InspectionTemplateSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it('accepts propertyQuestions with property-scope attributes', () => {
+    const result = safeParseInspectionTemplate({
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'property.woz': {
+          answerScope: 'property',
+          questionKey: 'woz',
+          label: 'WOZ?',
+          answerType: 'boolean',
+        },
+        'room.demoFlag': {
+          answerScope: 'room',
+          questionKey: 'demoFlag',
+          label: 'Demo?',
+          answerType: 'boolean',
+        },
+      },
+      roomTypes: [
+        {
+          id: 'demoRoom',
+          label: 'Demo room',
+          allowMultiplePerFloor: false,
+          questions: [{ attributeKey: 'room.demoFlag', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+      propertyQuestions: [
+        {
+          attributeKey: 'property.woz',
+          sortOrder: 1,
+          photoRequired: false,
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects room-scope attributes in propertyQuestions', () => {
+    const result = safeParseInspectionTemplate({
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'room.demoFlag': {
+          answerScope: 'room',
+          questionKey: 'demoFlag',
+          label: 'Demo?',
+          answerType: 'boolean',
+        },
+      },
+      roomTypes: [
+        {
+          id: 'demoRoom',
+          label: 'Demo room',
+          allowMultiplePerFloor: false,
+          questions: [],
+        },
+      ],
+      propertyQuestions: [
+        { attributeKey: 'room.demoFlag', sortOrder: 1, photoRequired: false },
+      ],
+    })
+    expect(result.success).toBe(false)
+  })
 })

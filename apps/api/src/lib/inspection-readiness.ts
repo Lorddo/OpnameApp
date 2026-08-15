@@ -34,6 +34,7 @@ export type InspectionRow = {
 export type ObservationRow = {
   id: string
   subject_id: string
+  subject_type?: string
   attribute_key: string
   value: unknown
   inspection_id?: string
@@ -64,17 +65,23 @@ export function buildCompletenessMaps(
   rooms: RoomRow[],
   observations: ObservationRow[],
   photos: PhotoRow[],
+  propertyId?: string,
 ): {
   answersByRoomId: Record<string, RoomAnswers>
   photosByRoomId: Record<string, Record<string, number>>
+  propertyAnswers: RoomAnswers
+  propertyPhotos: Record<string, number>
 } {
   const obsById = new Map(observations.map((o) => [o.id, o]))
   const answersByRoomId: Record<string, RoomAnswers> = {}
   const photosByRoomId: Record<string, Record<string, number>> = {}
+  const propertyAnswers: RoomAnswers = {}
+  const propertyPhotos: Record<string, number> = {}
 
   for (const room of rooms) {
     const answers: RoomAnswers = {}
     for (const obs of observations) {
+      if ((obs.subject_type ?? 'room') !== 'room') continue
       if (obs.subject_id !== room.id) continue
       const key = attributeQuestionKey(String(obs.attribute_key))
       if (key) answers[key] = obs.value
@@ -85,14 +92,29 @@ export function buildCompletenessMaps(
     for (const photo of photos) {
       if (!photo.observation_id) continue
       const obs = obsById.get(photo.observation_id)
-      if (!obs || obs.subject_id !== room.id) continue
+      if (!obs || (obs.subject_type ?? 'room') !== 'room' || obs.subject_id !== room.id) continue
       const attr = String(obs.attribute_key)
       photosByAttribute[attr] = (photosByAttribute[attr] ?? 0) + 1
     }
     photosByRoomId[room.id] = photosByAttribute
   }
 
-  return { answersByRoomId, photosByRoomId }
+  for (const obs of observations) {
+    if ((obs.subject_type ?? 'room') !== 'property') continue
+    if (propertyId && obs.subject_id !== propertyId) continue
+    const key = attributeQuestionKey(String(obs.attribute_key))
+    if (key) propertyAnswers[key] = obs.value
+  }
+  for (const photo of photos) {
+    if (!photo.observation_id) continue
+    const obs = obsById.get(photo.observation_id)
+    if (!obs || (obs.subject_type ?? 'room') !== 'property') continue
+    if (propertyId && obs.subject_id !== propertyId) continue
+    const attr = String(obs.attribute_key)
+    propertyPhotos[attr] = (propertyPhotos[attr] ?? 0) + 1
+  }
+
+  return { answersByRoomId, photosByRoomId, propertyAnswers, propertyPhotos }
 }
 
 export function evaluateInspectionReadiness(input: {
@@ -118,10 +140,11 @@ export function evaluateInspectionReadiness(input: {
     reasons.push('photos_not_uploaded')
   }
 
-  const { answersByRoomId, photosByRoomId } = buildCompletenessMaps(
+  const { answersByRoomId, photosByRoomId, propertyAnswers, propertyPhotos } = buildCompletenessMaps(
     input.rooms,
     input.observations,
     input.photos,
+    input.inspection.property_id,
   )
 
   const roomInputs = input.rooms.map((r) => ({ id: r.id, roomType: r.room_type }))
@@ -141,6 +164,7 @@ export function evaluateInspectionReadiness(input: {
       roomInputs,
       answersByRoomId,
       photosByRoomId,
+      { propertyAnswers, propertyPhotos },
     )
     completeness.push(result)
     if (result.missingAnswerCount > 0) reasons.push('missing_answers')
@@ -190,7 +214,7 @@ export async function loadInspectionReadinessBundle(
     db.from('rooms').select('id, room_type').eq('property_id', propertyId),
     db
       .from('observations')
-      .select('id, subject_id, attribute_key, value, inspection_id')
+      .select('id, subject_id, subject_type, attribute_key, value, inspection_id')
       .eq('inspection_id', inspectionId),
     db
       .from('photos')

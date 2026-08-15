@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { apiFetch } from '@/lib/api'
 import { resolvePhotoPreviewUrl } from '@/lib/photo-preview'
 import { loadTemplateConfigs as fetchTemplateConfigs } from '@/lib/templates'
@@ -23,14 +23,20 @@ import type { InspectionTemplate, Visibility } from '@opnameapp/core'
 import {
   applyNoneOfTheseDefaults,
   clearHiddenAnswers,
+  clearHiddenQuestionAnswers,
+  evaluateMergedPropertyCompleteness,
   evaluateMergedRoomCompleteness,
   evaluateTemplateCompleteness,
   exclusiveAttributeKeysForTemplate,
   exclusiveRoomTypeIdsForTemplate,
   formatNlPostcode,
   isCompleteNlPostcode,
+  listMergedVisiblePropertyQuestions,
   listMergedVisibleQuestions,
   mergeTemplates,
+  observationMapKey,
+  parseSubjectAnswerKey,
+  subjectAnswerKey,
 } from '@opnameapp/core'
 import {
   attributeQuestionKey,
@@ -39,7 +45,6 @@ import {
   hydrateBundleFromApi,
   hydrateBundleFromDossier,
   hydrateBundleFromLocal,
-  obsMapKey,
   shouldPreferLocalBundle,
   type HydrateBundle,
   type InspectionDossierPayload,
@@ -55,7 +60,8 @@ function compareRoomTypeOrder(a: { id: string; label: string }, b: { id: string;
 
 export type FlowPhoto = {
   id: string
-  roomId: string
+  subjectType: 'property' | 'floor' | 'room' | 'asset'
+  subjectId: string
   attributeKey: string
   observationId: string | null
   previewUrl: string | null
@@ -91,8 +97,8 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     Array<{ id: string; floorId: string; roomType: string; label: string | null }>
   >([])
   const activeFloorId = ref<string | null>(null)
-  const answersByRoom = ref<Record<string, Record<string, unknown>>>({})
-  /** Stable observation ids keyed by `${roomId}|${attributeKey}` so photos stay linked across saves. */
+  const answersBySubject = ref<Record<string, Record<string, unknown>>>({})
+  /** Stable observation ids keyed by `${subjectType}:${subjectId}|${attributeKey}`. */
   const observationIdsByKey = ref<Record<string, string>>({})
   const photos = ref<FlowPhoto[]>([])
   const saving = ref(false)
@@ -127,24 +133,55 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       .map(({ room }) => room)
   })
 
-  function photosByAttributeForRoom(roomId: string): Record<string, number> {
+  function photosByAttributeForSubject(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+  ): Record<string, number> {
     const counts: Record<string, number> = {}
     for (const photo of photos.value) {
-      if (photo.roomId !== roomId) continue
+      if (photo.subjectType !== subjectType || photo.subjectId !== subjectId) continue
       counts[photo.attributeKey] = (counts[photo.attributeKey] ?? 0) + 1
     }
     return counts
   }
 
+  function propertyAnswers(): Record<string, unknown> {
+    if (!propertyId.value) return {}
+    return answersBySubject.value[subjectAnswerKey('property', propertyId.value)] ?? {}
+  }
+
+  function roomAnswers(roomId: string): Record<string, unknown> {
+    return answersBySubject.value[subjectAnswerKey('room', roomId)] ?? {}
+  }
+
+  const propertyCompleteness = computed(() => {
+    if (!merged.value) {
+      return {
+        visibleCount: 0,
+        answeredCount: 0,
+        missingAttributeKeys: [] as string[],
+        missingPhotoAttributeKeys: [] as string[],
+        isComplete: true,
+      }
+    }
+    return evaluateMergedPropertyCompleteness(
+      merged.value,
+      propertyAnswers(),
+      propertyId.value ? photosByAttributeForSubject('property', propertyId.value) : {},
+    )
+  })
+
   const roomCompleteness = computed(() => {
     if (!merged.value) return []
+    const property = propertyAnswers()
     return rooms.value.flatMap((room) => {
       try {
         const result = evaluateMergedRoomCompleteness(
           merged.value!,
           room.roomType,
-          answersByRoom.value[room.id] ?? {},
-          photosByAttributeForRoom(room.id),
+          roomAnswers(room.id),
+          photosByAttributeForSubject('room', room.id),
+          property,
         )
         return [
           {
@@ -162,12 +199,16 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     })
   })
 
-  const missingAnswerCount = computed(() =>
-    roomCompleteness.value.reduce((sum, room) => sum + room.missingAttributeKeys.length, 0),
+  const missingAnswerCount = computed(
+    () =>
+      propertyCompleteness.value.missingAttributeKeys.length +
+      roomCompleteness.value.reduce((sum, room) => sum + room.missingAttributeKeys.length, 0),
   )
 
-  const missingPhotoCount = computed(() =>
-    roomCompleteness.value.reduce((sum, room) => sum + room.missingPhotoAttributeKeys.length, 0),
+  const missingPhotoCount = computed(
+    () =>
+      propertyCompleteness.value.missingPhotoAttributeKeys.length +
+      roomCompleteness.value.reduce((sum, room) => sum + room.missingPhotoAttributeKeys.length, 0),
   )
 
   const answersComplete = computed(
@@ -182,22 +223,41 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       evaluateTemplateCompleteness(
         tpl,
         rooms.value.map((room) => ({ id: room.id, roomType: room.roomType })),
-        answersByRoom.value,
+        Object.fromEntries(rooms.value.map((room) => [room.id, roomAnswers(room.id)] as const)),
         Object.fromEntries(
-          rooms.value.map((room) => [room.id, photosByAttributeForRoom(room.id)] as const),
+          rooms.value.map(
+            (room) => [room.id, photosByAttributeForSubject('room', room.id)] as const,
+          ),
         ),
+        {
+          propertyAnswers: propertyAnswers(),
+          propertyPhotos: propertyId.value
+            ? photosByAttributeForSubject('property', propertyId.value)
+            : {},
+        },
       ),
     ),
   )
 
+  function missingKeysForSubject(subjectType: FlowPhoto['subjectType'], subjectId: string) {
+    if (subjectType === 'property') return propertyCompleteness.value.missingAttributeKeys
+    return roomCompleteness.value.find((room) => room.roomId === subjectId)?.missingAttributeKeys ?? []
+  }
+
+  function missingPhotoKeysForSubject(subjectType: FlowPhoto['subjectType'], subjectId: string) {
+    if (subjectType === 'property') return propertyCompleteness.value.missingPhotoAttributeKeys
+    return (
+      roomCompleteness.value.find((room) => room.roomId === subjectId)?.missingPhotoAttributeKeys ??
+      []
+    )
+  }
+
   function missingKeysForRoom(roomId: string) {
-    return roomCompleteness.value.find((room) => room.roomId === roomId)?.missingAttributeKeys ?? []
+    return missingKeysForSubject('room', roomId)
   }
 
   function missingPhotoKeysForRoom(roomId: string) {
-    return (
-      roomCompleteness.value.find((room) => room.roomId === roomId)?.missingPhotoAttributeKeys ?? []
-    )
+    return missingPhotoKeysForSubject('room', roomId)
   }
 
   function floorHasMissingAnswers(floorId: string) {
@@ -208,8 +268,15 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     )
   }
 
-  function photosForQuestion(roomId: string, attributeKey: string) {
-    return photos.value.filter((p) => p.roomId === roomId && p.attributeKey === attributeKey)
+  function photosForQuestion(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+    attributeKey: string,
+  ) {
+    return photos.value.filter(
+      (p) =>
+        p.subjectType === subjectType && p.subjectId === subjectId && p.attributeKey === attributeKey,
+    )
   }
 
   function revokePhotoPreviews() {
@@ -222,29 +289,40 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     if (!merged.value) return []
     const room = rooms.value.find((r) => r.id === roomId)
     if (!room) return []
-    const answers = answersByRoom.value[roomId] ?? {}
-    return listMergedVisibleQuestions(merged.value, room.roomType, answers)
+    return listMergedVisibleQuestions(
+      merged.value,
+      room.roomType,
+      roomAnswers(roomId),
+      propertyAnswers(),
+    )
+  }
+
+  function questionsForProperty() {
+    if (!merged.value) return []
+    return listMergedVisiblePropertyQuestions(merged.value, propertyAnswers())
+  }
+
+  function writeSubjectAnswers(subjectKey: string, answers: Record<string, unknown>) {
+    answersBySubject.value = { ...answersBySubject.value, [subjectKey]: answers }
   }
 
   function fillChecklistDefaults(roomId?: string) {
     const view = merged.value
     if (!view) return
+    if (propertyId.value) {
+      const key = subjectAnswerKey('property', propertyId.value)
+      const current = answersBySubject.value[key] ?? {}
+      const filled = applyNoneOfTheseDefaults(questionsForProperty(), current)
+      if (filled !== current) writeSubjectAnswers(key, filled)
+    }
     const targets = roomId ? rooms.value.filter((room) => room.id === roomId) : rooms.value
     if (!targets.length) return
-    const next = { ...answersByRoom.value }
-    let changed = false
     for (const room of targets) {
-      const current = next[room.id] ?? {}
-      const filled = applyNoneOfTheseDefaults(
-        listMergedVisibleQuestions(view, room.roomType, current),
-        current,
-      )
-      if (filled !== current) {
-        next[room.id] = filled
-        changed = true
-      }
+      const key = subjectAnswerKey('room', room.id)
+      const current = answersBySubject.value[key] ?? {}
+      const filled = applyNoneOfTheseDefaults(questionsForRoom(room.id), current)
+      if (filled !== current) writeSubjectAnswers(key, filled)
     }
-    if (changed) answersByRoom.value = next
   }
 
   function reset() {
@@ -260,7 +338,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     floors.value = []
     rooms.value = []
     activeFloorId.value = null
-    answersByRoom.value = {}
+    answersBySubject.value = {}
     observationIdsByKey.value = {}
     photos.value = []
     uploadingPhotoKey.value = null
@@ -282,22 +360,34 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     const questionKeys = new Set(attributeKeys.map(attributeQuestionKey))
 
     const nextAnswers: Record<string, Record<string, unknown>> = {}
-    for (const [roomId, answers] of Object.entries(answersByRoom.value)) {
+    for (const [subjectKey, answers] of Object.entries(answersBySubject.value)) {
       const filtered = Object.fromEntries(
         Object.entries(answers).filter(([questionKey]) => !questionKeys.has(questionKey)),
       )
-      nextAnswers[roomId] = filtered
+      nextAnswers[subjectKey] = filtered
     }
-    answersByRoom.value = nextAnswers
+    answersBySubject.value = nextAnswers
 
     const nextObs = { ...observationIdsByKey.value }
-    const droppedObs: Array<{ id: string; roomId: string; attributeKey: string }> = []
+    const droppedObs: Array<{
+      id: string
+      subjectType: FlowPhoto['subjectType']
+      subjectId: string
+      attributeKey: string
+    }> = []
     for (const [mapKey, obsId] of Object.entries(nextObs)) {
       const sep = mapKey.indexOf('|')
-      const roomId = mapKey.slice(0, sep)
+      const subjectPart = mapKey.slice(0, sep)
       const attributeKey = mapKey.slice(sep + 1)
       if (!keySet.has(attributeKey)) continue
-      droppedObs.push({ id: obsId, roomId, attributeKey })
+      const parsed = parseSubjectAnswerKey(subjectPart)
+      if (!parsed) continue
+      droppedObs.push({
+        id: obsId,
+        subjectType: parsed.subjectType as FlowPhoto['subjectType'],
+        subjectId: parsed.subjectId,
+        attributeKey,
+      })
       delete nextObs[mapKey]
     }
     observationIdsByKey.value = nextObs
@@ -315,13 +405,22 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
           propertyId: propertyId.value!,
           inspectionId: inspectionId.value!,
           attributeKey: o.attributeKey,
-          subjectType: 'room',
-          subjectId: o.roomId,
+          subjectType: o.subjectType,
+          subjectId: o.subjectId,
           value: null,
           visibility: 'private',
         })),
       )
     }
+  }
+
+  function toggleDraftTemplate(templateKey: string, templateVersion: string) {
+    if (inspectionId.value) return
+    if (selectedTemplates.value.some((t) => t.templateKey === templateKey)) {
+      selectedTemplates.value = selectedTemplates.value.filter((t) => t.templateKey !== templateKey)
+      return
+    }
+    selectedTemplates.value = [...selectedTemplates.value, { templateKey, templateVersion }]
   }
 
   async function addInspectionTemplate(templateKey: string, templateVersion: string) {
@@ -377,6 +476,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   }
 
   async function startInspection() {
+    if (!selectedTemplates.value.length) return
     saving.value = true
     error.value = null
     try {
@@ -439,7 +539,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
 
     floors.value = bundle.floors
     rooms.value = bundle.rooms
-    answersByRoom.value = bundle.answersByRoom
+    answersBySubject.value = bundle.answersBySubject
     observationIdsByKey.value = bundle.observationIdsByKey
     fillChecklistDefaults()
 
@@ -643,44 +743,86 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     if (!propertyId.value) return
     await removeRoomLocal(propertyId.value, roomId)
     rooms.value = rooms.value.filter((r) => r.id !== roomId)
-    const next = { ...answersByRoom.value }
-    delete next[roomId]
-    answersByRoom.value = next
+    const next = { ...answersBySubject.value }
+    delete next[subjectAnswerKey('room', roomId)]
+    answersBySubject.value = next
     const nextObs = { ...observationIdsByKey.value }
+    const prefix = `${subjectAnswerKey('room', roomId)}|`
     for (const key of Object.keys(nextObs)) {
-      if (key.startsWith(`${roomId}|`)) delete nextObs[key]
+      if (key.startsWith(prefix)) delete nextObs[key]
     }
     observationIdsByKey.value = nextObs
-    const removed = photos.value.filter((p) => p.roomId === roomId)
+    const removed = photos.value.filter((p) => p.subjectType === 'room' && p.subjectId === roomId)
     for (const photo of removed) {
       if (photo.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl)
     }
-    photos.value = photos.value.filter((p) => p.roomId !== roomId)
-  }
-
-  function setAnswer(roomId: string, questionKey: string, value: unknown) {
-    if (!merged.value) return
-    const room = rooms.value.find((r) => r.id === roomId)
-    if (!room) return
-    const current = { ...(answersByRoom.value[roomId] ?? {}), [questionKey]: value }
-    const roomType = merged.value.roomTypes.find((rt: { id: string }) => rt.id === room.roomType)
-    const cleared = roomType ? clearHiddenAnswers(roomType, current) : current
-    answersByRoom.value[roomId] = applyNoneOfTheseDefaults(
-      listMergedVisibleQuestions(merged.value, room.roomType, cleared),
-      cleared,
+    photos.value = photos.value.filter(
+      (p) => !(p.subjectType === 'room' && p.subjectId === roomId),
     )
   }
 
-  async function ensureObservation(roomId: string, attributeKey: string) {
+  function setAnswer(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+    questionKey: string,
+    value: unknown,
+  ) {
+    if (!merged.value) return
+    const subjectKey = subjectAnswerKey(subjectType, subjectId)
+    const current = { ...(answersBySubject.value[subjectKey] ?? {}), [questionKey]: value }
+    if (subjectType === 'property') {
+      const cleared = clearHiddenQuestionAnswers(merged.value.propertyQuestions, current, {
+        propertyAnswers: current,
+      })
+      writeSubjectAnswers(
+        subjectKey,
+        applyNoneOfTheseDefaults(listMergedVisiblePropertyQuestions(merged.value, cleared), cleared),
+      )
+      for (const room of rooms.value) {
+        const roomKey = subjectAnswerKey('room', room.id)
+        const roomCurrent = answersBySubject.value[roomKey] ?? {}
+        const roomType = merged.value.roomTypes.find((rt) => rt.id === room.roomType)
+        if (!roomType) continue
+        const roomCleared = clearHiddenAnswers(roomType, roomCurrent, cleared)
+        writeSubjectAnswers(
+          roomKey,
+          applyNoneOfTheseDefaults(
+            listMergedVisibleQuestions(merged.value, room.roomType, roomCleared, cleared),
+            roomCleared,
+          ),
+        )
+      }
+      return
+    }
+    const room = rooms.value.find((r) => r.id === subjectId)
+    if (!room) return
+    const roomType = merged.value.roomTypes.find((rt: { id: string }) => rt.id === room.roomType)
+    const property = propertyAnswers()
+    const cleared = roomType ? clearHiddenAnswers(roomType, current, property) : current
+    writeSubjectAnswers(
+      subjectKey,
+      applyNoneOfTheseDefaults(
+        listMergedVisibleQuestions(merged.value, room.roomType, cleared, property),
+        cleared,
+      ),
+    )
+  }
+
+  async function ensureObservation(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+    attributeKey: string,
+  ) {
     if (!propertyId.value || !inspectionId.value) {
       throw new Error('No active inspection')
     }
-    const mapKey = obsMapKey(roomId, attributeKey)
+    const mapKey = observationMapKey(subjectType, subjectId, attributeKey)
     const existing = observationIdsByKey.value[mapKey]
     if (existing) return existing
 
     const questionKey = attributeQuestionKey(attributeKey)
-    const value = answersByRoom.value[roomId]?.[questionKey] ?? null
+    const value =
+      answersBySubject.value[subjectAnswerKey(subjectType, subjectId)]?.[questionKey] ?? null
     const id = newId()
     await saveObservationsLocal([
       {
@@ -688,8 +830,8 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
         propertyId: propertyId.value,
         inspectionId: inspectionId.value,
         attributeKey,
-        subjectType: 'room',
-        subjectId: roomId,
+        subjectType,
+        subjectId,
         value,
         visibility: 'private',
       },
@@ -698,18 +840,23 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     return id
   }
 
-  async function uploadPhoto(roomId: string, attributeKey: string, file: File) {
+  async function uploadPhoto(
+    subjectType: FlowPhoto['subjectType'],
+    subjectId: string,
+    attributeKey: string,
+    file: File,
+  ) {
     if (!propertyId.value || !inspectionId.value) return
-    const uploadKey = obsMapKey(roomId, attributeKey)
+    const uploadKey = observationMapKey(subjectType, subjectId, attributeKey)
     uploadingPhotoKey.value = uploadKey
     error.value = null
     try {
-      const observationId = await ensureObservation(roomId, attributeKey)
+      const observationId = await ensureObservation(subjectType, subjectId, attributeKey)
       const photo = await savePhotoLocal({
         propertyId: propertyId.value,
         observationId,
-        subjectType: 'room',
-        subjectId: roomId,
+        subjectType,
+        subjectId,
         sourceInspectionId: inspectionId.value,
         file,
         contentType: file.type || 'image/jpeg',
@@ -718,7 +865,8 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
         ...photos.value,
         {
           id: photo.id,
-          roomId,
+          subjectType,
+          subjectId,
           attributeKey,
           observationId,
           previewUrl: URL.createObjectURL(file),
@@ -739,25 +887,29 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     try {
       fillChecklistDefaults()
       const nextObsIds = { ...observationIdsByKey.value }
-      const observations = rooms.value.flatMap((room) => {
-        const answers = answersByRoom.value[room.id] ?? {}
-        return Object.entries(answers).map(([questionKey, value]) => {
-          const attributeKey = `room.${questionKey}`
-          const mapKey = obsMapKey(room.id, attributeKey)
-          const id = nextObsIds[mapKey] ?? newId()
-          nextObsIds[mapKey] = id
-          return {
-            id,
-            propertyId: propertyId.value!,
-            inspectionId: inspectionId.value!,
-            attributeKey,
-            subjectType: 'room' as const,
-            subjectId: room.id,
-            value,
-            visibility: 'private' as const,
-          }
-        })
-      })
+      const observations = Object.entries(answersBySubject.value).flatMap(
+        ([subjectKey, answers]) => {
+          const parsed = parseSubjectAnswerKey(subjectKey)
+          if (!parsed) return []
+          const subjectType = parsed.subjectType as FlowPhoto['subjectType']
+          return Object.entries(answers).map(([questionKey, value]) => {
+            const attributeKey = `${subjectType}.${questionKey}`
+            const mapKey = observationMapKey(subjectType, parsed.subjectId, attributeKey)
+            const id = nextObsIds[mapKey] ?? newId()
+            nextObsIds[mapKey] = id
+            return {
+              id,
+              propertyId: propertyId.value!,
+              inspectionId: inspectionId.value!,
+              attributeKey,
+              subjectType,
+              subjectId: parsed.subjectId,
+              value,
+              visibility: 'private' as const,
+            }
+          })
+        },
+      )
       observationIdsByKey.value = nextObsIds
       if (observations.length) {
         await saveObservationsLocal(observations)
@@ -771,6 +923,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   }
 
   function enterChecklist() {
+    fillChecklistDefaults()
     step.value = 3
     if (!activeFloorId.value || !floors.value.some((floor) => floor.id === activeFloorId.value)) {
       activeFloorId.value = floors.value[0]?.id ?? null
@@ -787,6 +940,19 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   }
 
   function goToFirstIncomplete() {
+    if (
+      propertyCompleteness.value.missingAttributeKeys.length > 0 ||
+      propertyCompleteness.value.missingPhotoAttributeKeys.length > 0
+    ) {
+      step.value = 3
+      void nextTick(() => {
+        document.getElementById('property-questions')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      })
+      return
+    }
     const first = roomCompleteness.value.find(
       (room) => room.missingAttributeKeys.length > 0 || room.missingPhotoAttributeKeys.length > 0,
     )
@@ -850,7 +1016,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     floors,
     rooms,
     activeFloorId,
-    answersByRoom,
+    answersBySubject,
     observationIdsByKey,
     photos,
     saving,
@@ -861,14 +1027,18 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     sortedRoomTypes,
     activeFloor,
     roomsOnActiveFloor,
+    propertyCompleteness,
     roomCompleteness,
     missingAnswerCount,
     missingPhotoCount,
     answersComplete,
     templateCompleteness,
     questionsForRoom,
+    questionsForProperty,
     missingKeysForRoom,
     missingPhotoKeysForRoom,
+    missingKeysForSubject,
+    missingPhotoKeysForSubject,
     photosForQuestion,
     floorHasMissingAnswers,
     selectFloor,
@@ -876,6 +1046,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     reset,
     startInspection,
     resumeInspection,
+    toggleDraftTemplate,
     addInspectionTemplate,
     removeInspectionTemplate,
     hasFloorLabel,
