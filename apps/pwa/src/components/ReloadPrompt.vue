@@ -30,7 +30,7 @@ async function reload() {
 <template>
   <div
     v-if="offlineReady || needRefresh"
-    class="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+    class="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
     role="status"
   >
     <p class="mb-3 text-sm font-medium">

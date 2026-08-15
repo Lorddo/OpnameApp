@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { useProjectsStore, type InspectionRow } from '@/stores/projects'
 import { useInspectionFlowStore } from '@/stores/inspection-flow'
 import { useSyncStore } from '@/stores/sync'
+import { formatAddress, formatDate as formatDateLocale, statusLabel as labelForStatus } from '@/lib/format'
+import { isBusySyncStatus } from '@/db/sync-status'
 import type { SyncStatus } from '@/db/types'
 
 const STATUS_ORDER = ['in_progress', 'assigned', 'draft', 'completed', 'synced'] as const
@@ -48,7 +50,11 @@ onMounted(() => {
 function propertyLabel(propertyId: string) {
   const p = properties.value.find((x) => x.id === propertyId)
   if (!p) return propertyId.slice(0, 8)
-  return `${p.postcode} ${p.house_number}${p.house_number_addition ?? ''}`
+  return formatAddress({
+    postcode: p.postcode,
+    houseNumber: p.house_number,
+    houseNumberAddition: p.house_number_addition,
+  }, { additionSeparator: '' })
 }
 
 function canResume(status: string) {
@@ -63,7 +69,7 @@ function openInspection(inspection: {
 }) {
   const syncStatus = syncStatusFor(inspection)
   // Pending/error = data may only exist locally; never open remote dossier first.
-  if (syncStatus === 'pending' || syncStatus === 'error' || syncStatus === 'draft') {
+  if (isBusySyncStatus(syncStatus)) {
     void router.push({ name: 'inspection-resume', params: { inspectionId: inspection.id } })
     return
   }
@@ -75,9 +81,7 @@ function openInspection(inspection: {
 }
 
 function statusLabel(status: string) {
-  const key = `projects.status.${status}`
-  const translated = t(key)
-  return translated === key ? status : translated
+  return labelForStatus(t, status)
 }
 
 function syncStatusFor(inspection: { id: string; sync_status?: string }): SyncStatus {
@@ -89,18 +93,14 @@ function syncStatusLabel(status: SyncStatus) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return '—'
-  return new Date(value).toLocaleString(locale.value === 'en' ? 'en-GB' : 'nl-NL', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+  return formatDateLocale(value, locale.value)
 }
 
 async function onRemoveLocal(inspection: { property_id: string; id: string }, ev: Event) {
   ev.stopPropagation()
   ev.preventDefault()
   const status = syncStatusFor(inspection)
-  const pending = status === 'pending' || status === 'error' || status === 'draft'
+  const pending = isBusySyncStatus(status)
   const ok = window.confirm(
     pending ? t('projects.removeLocalConfirmPending') : t('projects.removeLocalConfirm'),
   )
@@ -177,10 +177,7 @@ async function onRemoveLocal(inspection: { property_id: string; id: string }, ev
               </div>
               <span class="text-sm font-medium text-primary">
                 {{
-                  syncStatusFor(inspection) === 'pending' ||
-                  syncStatusFor(inspection) === 'error' ||
-                  syncStatusFor(inspection) === 'draft' ||
-                  canResume(inspection.status)
+                  isBusySyncStatus(syncStatusFor(inspection)) || canResume(inspection.status)
                     ? t('projects.continue')
                     : t('projects.dossier')
                 }}

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   evaluateCompletenessPerTemplate,
   evaluateMergedRoomCompleteness,
+  exclusiveAttributeKeysForTemplate,
+  exclusiveRoomTypeIdsForTemplate,
   mergeTemplates,
 } from './merge.js'
 import type { InspectionTemplate } from './template-schema.js'
@@ -108,5 +110,71 @@ describe('mergeTemplates', () => {
     expect(result.missingAttributeKeys).toEqual(
       expect.arrayContaining(['room.klimaatregeling', 'room.daglichtMin05m2']),
     )
+  })
+
+  it('lists questions and room types that belong only to one template', () => {
+    const wwsWithExtraRoom: InspectionTemplate = {
+      ...wws,
+      roomTypes: [
+        ...wws.roomTypes,
+        {
+          id: 'buitenruimte',
+          label: 'Buitenruimte',
+          allowMultiplePerFloor: false,
+          questions: [{ attributeKey: 'room.daglichtMin05m2', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+    }
+    const merged = mergeTemplates([bbmi, wwsWithExtraRoom])
+    expect(exclusiveAttributeKeysForTemplate(merged, 'wws')).toEqual(['room.daglichtMin05m2'])
+    expect(exclusiveAttributeKeysForTemplate(merged, 'bbmi')).toEqual(['room.klimaatregeling'])
+    expect(exclusiveRoomTypeIdsForTemplate(merged, 'wws')).toEqual(['buitenruimte'])
+    expect(exclusiveRoomTypeIdsForTemplate(merged, 'bbmi')).toEqual([])
+  })
+
+  it('prefers always when merging photoRequiredWhen', () => {
+    const presentOnly: InspectionTemplate = {
+      ...wws,
+      roomTypes: [
+        {
+          id: 'serre',
+          label: 'Serre',
+          allowMultiplePerFloor: false,
+          questions: [
+            {
+              attributeKey: 'room.geisoleerd',
+              sortOrder: 1,
+              photoRequired: true,
+              photoRequiredWhen: 'present',
+            },
+          ],
+        },
+      ],
+    }
+    const always: InspectionTemplate = {
+      ...bbmi,
+      roomTypes: [
+        {
+          id: 'serre',
+          label: 'Serre',
+          allowMultiplePerFloor: true,
+          questions: [
+            {
+              attributeKey: 'room.geisoleerd',
+              sortOrder: 1,
+              photoRequired: true,
+              photoRequiredWhen: 'always',
+            },
+          ],
+        },
+      ],
+    }
+
+    const merged = mergeTemplates([presentOnly, always])
+    const question = merged.roomTypes[0]?.questions.find(
+      (q) => q.attributeKey === 'room.geisoleerd',
+    )
+    expect(question?.photoRequired).toBe(true)
+    expect(question?.photoRequiredWhen).toBe('always')
   })
 })

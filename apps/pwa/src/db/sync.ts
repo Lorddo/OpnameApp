@@ -1,5 +1,7 @@
+import { formatNlPostcode } from '@opnameapp/core'
 import { apiFetch, apiUpload, ApiClientError } from '@/lib/api'
 import { db } from './index'
+import { getBoundLocalOwner } from './owner'
 import { markOutboxAttempt, listReadyOutbox, pendingOutboxCount } from './outbox'
 import { emitSyncChange } from './sync-events'
 import type { OutboxItem, SyncStatus } from './types'
@@ -13,6 +15,10 @@ function isAlreadyExistsError(err: unknown): boolean {
   if (!(err instanceof ApiClientError)) return false
   if (err.status === 409) return true
   return /duplicate|unique|already exists|23505/i.test(err.message)
+}
+
+function isNotFoundError(err: unknown): boolean {
+  return err instanceof ApiClientError && err.status === 404
 }
 
 async function setEntitySyncStatus(
@@ -46,7 +52,7 @@ async function processItem(item: OutboxItem): Promise<void> {
           method: 'POST',
           body: JSON.stringify({
             id: p.id,
-            postcode: p.postcode,
+            postcode: formatNlPostcode(p.postcode),
             houseNumber: p.houseNumber,
             houseNumberAddition: p.houseNumberAddition,
             city: p.city ?? null,
@@ -79,7 +85,11 @@ async function processItem(item: OutboxItem): Promise<void> {
     }
     case 'floor.delete': {
       const f = item.payload as { id: string; propertyId: string }
-      await apiFetch(`/api/properties/${f.propertyId}/floors/${f.id}`, { method: 'DELETE' })
+      try {
+        await apiFetch(`/api/properties/${f.propertyId}/floors/${f.id}`, { method: 'DELETE' })
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err
+      }
       return
     }
     case 'room.upsert': {
@@ -106,7 +116,11 @@ async function processItem(item: OutboxItem): Promise<void> {
     }
     case 'room.delete': {
       const r = item.payload as { id: string; propertyId: string }
-      await apiFetch(`/api/properties/${r.propertyId}/rooms/${r.id}`, { method: 'DELETE' })
+      try {
+        await apiFetch(`/api/properties/${r.propertyId}/rooms/${r.id}`, { method: 'DELETE' })
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err
+      }
       return
     }
     case 'inspection.upsert': {
@@ -137,14 +151,41 @@ async function processItem(item: OutboxItem): Promise<void> {
         id: string
         status?: string
         completedAt?: string | null
+        templates?: Array<{ templateKey: string; templateVersion: string }>
       }
-      await apiFetch(`/api/inspections/${i.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          status: i.status,
-          completedAt: i.completedAt,
-        }),
-      })
+      const patchBody = {
+        status: i.status,
+        completedAt: i.completedAt,
+        templates: i.templates,
+      }
+      try {
+        await apiFetch(`/api/inspections/${i.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patchBody),
+        })
+      } catch (err) {
+        // Create raced ahead of patch, or patch was retried after a failed create.
+        if (!isNotFoundError(err)) throw err
+        const local = await db.inspections.get(i.id)
+        if (!local) throw err
+        try {
+          await apiFetch('/api/inspections', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: local.id,
+              propertyId: local.propertyId,
+              status: i.status ?? local.status,
+              templates: i.templates ?? local.templates,
+            }),
+          })
+        } catch (createErr) {
+          if (!isAlreadyExistsError(createErr)) throw createErr
+        }
+        await apiFetch(`/api/inspections/${i.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patchBody),
+        })
+      }
       await setEntitySyncStatus('inspections', i.id, 'synced', { lastSyncError: null })
       return
     }
@@ -207,6 +248,9 @@ export async function flushOutbox(): Promise<{ processed: number; failed: number
     return { processed: 0, failed: 0, remaining: await pendingOutboxCount() }
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { processed: 0, failed: 0, remaining: await pendingOutboxCount() }
+  }
+  if (!(await getBoundLocalOwner())) {
     return { processed: 0, failed: 0, remaining: await pendingOutboxCount() }
   }
 

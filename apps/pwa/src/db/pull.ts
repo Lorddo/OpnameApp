@@ -1,6 +1,8 @@
 import { apiFetch } from '@/lib/api'
 import { cloneForIdb } from './clone'
 import { db } from './index'
+import { getBoundLocalOwner } from './owner'
+import { isBusySyncStatus } from './sync-status'
 import type { LocalInspection, LocalProperty, LocalTemplate, SyncStatus } from './types'
 
 const CURSOR_TEMPLATES = 'pull.cursor.templates'
@@ -59,7 +61,7 @@ async function setCursor(key: string, value: string | null) {
 
 function shouldApplyServer(localUpdatedAt: string | undefined, serverUpdatedAt: string, localSync?: SyncStatus) {
   // Pending local writes win until pushed (outbox is source of truth).
-  if (localSync === 'pending' || localSync === 'error' || localSync === 'draft') return false
+  if (isBusySyncStatus(localSync)) return false
   if (!localUpdatedAt) return true
   return serverUpdatedAt >= localUpdatedAt
 }
@@ -131,6 +133,9 @@ export async function pullRemote(): Promise<{
   truncated: boolean
 }> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { templates: 0, properties: 0, inspections: 0, truncated: false }
+  }
+  if (!(await getBoundLocalOwner())) {
     return { templates: 0, properties: 0, inspections: 0, truncated: false }
   }
 

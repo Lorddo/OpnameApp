@@ -281,7 +281,12 @@
       "label": "Omgebouwde bergruimte",
       "allowMultiplePerFloor": true,
       "questions": [
-        { "attributeKey": "room.toegankelijkVoorAuto", "sortOrder": 1, "photoRequired": true },
+        {
+          "attributeKey": "room.toegankelijkVoorAuto",
+          "sortOrder": 1,
+          "photoRequired": true,
+          "photoRequiredWhen": "always"
+        },
         {
           "attributeKey": "room.geisoleerd",
           "sortOrder": 2,

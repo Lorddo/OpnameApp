@@ -11,6 +11,7 @@ import { useSyncStore } from '@/stores/sync'
 const { t } = useI18n()
 const auth = useAuthStore()
 const sync = useSyncStore()
+const { isPlatformAdmin } = storeToRefs(auth)
 const { globalState, pendingCount, failedCount, lastError, syncing, online } = storeToRefs(sync)
 
 onMounted(() => {
@@ -29,7 +30,7 @@ async function onSyncNow() {
 
 <template>
   <div class="min-h-dvh bg-background text-foreground">
-    <header class="border-b border-border bg-brand text-brand-foreground">
+    <header class="border-b border-border bg-brand text-brand-foreground print:hidden">
       <div
         class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6"
       >
@@ -52,6 +53,13 @@ async function onSyncNow() {
             {{ t('nav.projects') }}
           </RouterLink>
           <RouterLink
+            v-if="isPlatformAdmin"
+            class="rounded-lg px-4 py-3 text-base font-semibold hover:bg-white/10"
+            to="/admin"
+          >
+            {{ t('nav.admin') }}
+          </RouterLink>
+          <RouterLink
             class="rounded-lg px-4 py-3 text-base font-semibold hover:bg-white/10"
             to="/settings"
           >
@@ -63,7 +71,7 @@ async function onSyncNow() {
     </header>
 
     <div
-      class="border-b border-border"
+      class="border-b border-border print:hidden"
       :class="{
         'bg-muted': globalState === 'idle',
         'bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50':
@@ -103,7 +111,9 @@ async function onSyncNow() {
       </div>
     </div>
 
-    <main class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-2">
+    <main
+      class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-2 print:block print:max-w-none print:px-0 print:py-0"
+    >
       <RouterView />
     </main>
   </div>

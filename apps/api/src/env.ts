@@ -13,6 +13,12 @@ export type Env = {
   CORS_ORIGIN?: string
   /** Where invite emails should land (PWA), e.g. https://app.example/login */
   INVITE_REDIRECT_URL?: string
+  /** Dashboard inbound webhook URL (empty = disabled) */
+  WEBHOOK_URL?: string
+  /** HMAC secret for X-Opname-Signature */
+  WEBHOOK_SECRET?: string
+  /** Absolute API base for dossierUrl in webhook payloads */
+  PUBLIC_API_BASE_URL?: string
 }
 
 export function supabasePublishableKey(env: Env): string {

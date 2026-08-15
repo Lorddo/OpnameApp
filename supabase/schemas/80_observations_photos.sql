@@ -44,6 +44,8 @@ create table public.photos (
   storage_key text not null,
   checksum text,
   source_inspection_id uuid references public.inspections (id),
+  -- Null until R2 PUT succeeds; meta row is created earlier via upload-url.
+  uploaded_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -52,6 +54,8 @@ create index photos_property_id_idx on public.photos (property_id);
 create index photos_observation_id_idx on public.photos (observation_id);
 create index photos_owner_org_id_idx on public.photos (owner_org_id);
 create index photos_source_inspection_id_idx on public.photos (source_inspection_id);
+create index photos_pending_upload_idx on public.photos (source_inspection_id)
+  where uploaded_at is null;
 
 create trigger photos_set_updated_at
 before update on public.photos

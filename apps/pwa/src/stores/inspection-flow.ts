@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { apiFetch, apiFetchBlob } from '@/lib/api'
-import { db } from '@/db'
-import { cloneForIdb } from '@/db/clone'
+import { apiFetch } from '@/lib/api'
+import { resolvePhotoPreviewUrl } from '@/lib/photo-preview'
+import { loadTemplateConfigs as fetchTemplateConfigs } from '@/lib/templates'
 import { newId } from '@/db/ids'
 import {
   addFloorLocal,
   addRoomLocal,
+  cacheSyncedStructureLocal,
   completeInspectionLocal,
   createInspectionLocal,
   createPropertyLocal,
@@ -16,36 +17,40 @@ import {
   reopenInspectionLocal,
   saveObservationsLocal,
   savePhotoLocal,
+  updateInspectionTemplatesLocal,
 } from '@/db/repository'
-import { flushOutbox } from '@/db/sync'
-import type { InspectionTemplate } from '@opnameapp/core'
+import type { InspectionTemplate, Visibility } from '@opnameapp/core'
 import {
+  applyNoneOfTheseDefaults,
   clearHiddenAnswers,
   evaluateMergedRoomCompleteness,
   evaluateTemplateCompleteness,
+  exclusiveAttributeKeysForTemplate,
+  exclusiveRoomTypeIdsForTemplate,
+  formatNlPostcode,
+  isCompleteNlPostcode,
   listMergedVisibleQuestions,
   mergeTemplates,
-  parseInspectionTemplate,
 } from '@opnameapp/core'
+import {
+  attributeQuestionKey,
+  bundleHasStructure,
+  chooseFlowStep,
+  hydrateBundleFromApi,
+  hydrateBundleFromDossier,
+  hydrateBundleFromLocal,
+  obsMapKey,
+  shouldPreferLocalBundle,
+  type HydrateBundle,
+  type InspectionDossierPayload,
+} from '@/stores/inspection-hydrate'
 
 const METERKAST_ROOM_TYPE_ID = 'meterkast'
-
-function uuid() {
-  return newId()
-}
 
 function compareRoomTypeOrder(a: { id: string; label: string }, b: { id: string; label: string }) {
   if (a.id === METERKAST_ROOM_TYPE_ID && b.id !== METERKAST_ROOM_TYPE_ID) return -1
   if (b.id === METERKAST_ROOM_TYPE_ID && a.id !== METERKAST_ROOM_TYPE_ID) return 1
   return a.label.localeCompare(b.label, 'nl', { sensitivity: 'base' })
-}
-
-function obsMapKey(roomId: string, attributeKey: string) {
-  return `${roomId}|${attributeKey}`
-}
-
-function attributeQuestionKey(attributeKey: string) {
-  return attributeKey.includes('.') ? attributeKey.split('.').slice(1).join('.') : attributeKey
 }
 
 export type FlowPhoto = {
@@ -69,7 +74,14 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   const step = ref(1)
   const propertyId = ref<string | null>(null)
   const inspectionId = ref<string | null>(null)
-  const postcode = ref('')
+  const postcodeInput = ref('')
+  const postcode = computed({
+    get: () => postcodeInput.value,
+    set: (value: string) => {
+      postcodeInput.value = formatNlPostcode(value)
+    },
+  })
+  const postcodeIsComplete = computed(() => isCompleteNlPostcode(postcode.value))
   const houseNumber = ref('')
   const houseNumberAddition = ref('')
   const selectedTemplates = ref<Array<{ templateKey: string; templateVersion: string }>>([])
@@ -214,6 +226,27 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     return listMergedVisibleQuestions(merged.value, room.roomType, answers)
   }
 
+  function fillChecklistDefaults(roomId?: string) {
+    const view = merged.value
+    if (!view) return
+    const targets = roomId ? rooms.value.filter((room) => room.id === roomId) : rooms.value
+    if (!targets.length) return
+    const next = { ...answersByRoom.value }
+    let changed = false
+    for (const room of targets) {
+      const current = next[room.id] ?? {}
+      const filled = applyNoneOfTheseDefaults(
+        listMergedVisibleQuestions(view, room.roomType, current),
+        current,
+      )
+      if (filled !== current) {
+        next[room.id] = filled
+        changed = true
+      }
+    }
+    if (changed) answersByRoom.value = next
+  }
+
   function reset() {
     revokePhotoPreviews()
     step.value = 1
@@ -235,32 +268,112 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
   }
 
   async function loadTemplateConfigs() {
-    const configs: InspectionTemplate[] = []
-    for (const pin of selectedTemplates.value) {
-      const cacheId = `${pin.templateKey}@${pin.templateVersion}`
-      try {
-        const res = await apiFetch<{
-          template: { template_key: string; version: string; label: string; locale: string; config: unknown }
-        }>(`/api/templates/${pin.templateKey}/${pin.templateVersion}`)
-        configs.push(parseInspectionTemplate(res.template.config))
-        await db.templates.put(
-          cloneForIdb({
-            id: cacheId,
-            templateKey: res.template.template_key ?? pin.templateKey,
-            version: res.template.version ?? pin.templateVersion,
-            label: res.template.label ?? pin.templateKey,
-            locale: res.template.locale ?? 'nl',
-            config: res.template.config,
-            updatedAt: new Date().toISOString(),
-          }),
-        )
-      } catch (err) {
-        const cached = await db.templates.get(cacheId)
-        if (!cached) throw err
-        configs.push(parseInspectionTemplate(cached.config))
-      }
+    templateConfigs.value = await fetchTemplateConfigs(selectedTemplates.value)
+  }
+
+  async function persistSelectedTemplates() {
+    if (!inspectionId.value) return
+    await updateInspectionTemplatesLocal(inspectionId.value, selectedTemplates.value)
+  }
+
+  async function discardAnswersForAttributeKeys(attributeKeys: string[]) {
+    if (!attributeKeys.length) return
+    const keySet = new Set(attributeKeys)
+    const questionKeys = new Set(attributeKeys.map(attributeQuestionKey))
+
+    const nextAnswers: Record<string, Record<string, unknown>> = {}
+    for (const [roomId, answers] of Object.entries(answersByRoom.value)) {
+      const filtered = Object.fromEntries(
+        Object.entries(answers).filter(([questionKey]) => !questionKeys.has(questionKey)),
+      )
+      nextAnswers[roomId] = filtered
     }
-    templateConfigs.value = configs
+    answersByRoom.value = nextAnswers
+
+    const nextObs = { ...observationIdsByKey.value }
+    const droppedObs: Array<{ id: string; roomId: string; attributeKey: string }> = []
+    for (const [mapKey, obsId] of Object.entries(nextObs)) {
+      const sep = mapKey.indexOf('|')
+      const roomId = mapKey.slice(0, sep)
+      const attributeKey = mapKey.slice(sep + 1)
+      if (!keySet.has(attributeKey)) continue
+      droppedObs.push({ id: obsId, roomId, attributeKey })
+      delete nextObs[mapKey]
+    }
+    observationIdsByKey.value = nextObs
+
+    const removedPhotos = photos.value.filter((p) => keySet.has(p.attributeKey))
+    for (const photo of removedPhotos) {
+      if (photo.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl)
+    }
+    photos.value = photos.value.filter((p) => !keySet.has(p.attributeKey))
+
+    if (droppedObs.length && propertyId.value && inspectionId.value) {
+      await saveObservationsLocal(
+        droppedObs.map((o) => ({
+          id: o.id,
+          propertyId: propertyId.value!,
+          inspectionId: inspectionId.value!,
+          attributeKey: o.attributeKey,
+          subjectType: 'room',
+          subjectId: o.roomId,
+          value: null,
+          visibility: 'private',
+        })),
+      )
+    }
+  }
+
+  async function addInspectionTemplate(templateKey: string, templateVersion: string) {
+    if (selectedTemplates.value.some((t) => t.templateKey === templateKey)) return
+    saving.value = true
+    error.value = null
+    const previous = selectedTemplates.value
+    try {
+      selectedTemplates.value = [...previous, { templateKey, templateVersion }]
+      await loadTemplateConfigs()
+      fillChecklistDefaults()
+      await persistSelectedTemplates()
+    } catch (err) {
+      selectedTemplates.value = previous
+      try {
+        await loadTemplateConfigs()
+      } catch {
+        templateConfigs.value = []
+      }
+      error.value = err instanceof Error ? err.message : String(err)
+      throw err
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function removeInspectionTemplate(templateKey: string) {
+    if (selectedTemplates.value.length <= 1) return
+    if (!selectedTemplates.value.some((t) => t.templateKey === templateKey)) return
+    saving.value = true
+    error.value = null
+    try {
+      const mergedView = merged.value
+      const exclusiveKeys = mergedView
+        ? exclusiveAttributeKeysForTemplate(mergedView, templateKey)
+        : []
+      const exclusiveRoomTypes = mergedView
+        ? exclusiveRoomTypeIdsForTemplate(mergedView, templateKey)
+        : []
+      for (const room of rooms.value.filter((r) => exclusiveRoomTypes.includes(r.roomType))) {
+        await removeRoom(room.id)
+      }
+      await discardAnswersForAttributeKeys(exclusiveKeys)
+      selectedTemplates.value = selectedTemplates.value.filter((t) => t.templateKey !== templateKey)
+      await loadTemplateConfigs()
+      await persistSelectedTemplates()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : String(err)
+      throw err
+    } finally {
+      saving.value = false
+    }
   }
 
   async function startInspection() {
@@ -293,102 +406,93 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
   }
 
-  async function applyLocalBundle(
-    targetInspectionId: string,
+  function applyChosenStep(
+    status: string,
     keepStructureStep: boolean,
-    opts?: { requireTemplates?: boolean },
-  ): Promise<boolean> {
-    const local = await getLocalInspectionBundle(targetInspectionId)
-    if (!local?.inspection || !local.property) return false
+    editing: boolean,
+  ) {
+    const hasStructure = bundleHasStructure(floors.value, rooms.value)
+    step.value = chooseFlowStep({ status, hasStructure, keepStructureStep, editing })
+    if (step.value === 3) {
+      activeFloorId.value = floors.value[0]?.id ?? null
+    }
+  }
 
-    inspectionId.value = local.inspection.id
-    propertyId.value = local.inspection.propertyId
-    selectedTemplates.value = local.inspection.templates
-    postcode.value = local.property.postcode
-    houseNumber.value = local.property.houseNumber
-    houseNumberAddition.value = local.property.houseNumberAddition ?? ''
+  async function hydrateFlowFromBundle(
+    bundle: HydrateBundle,
+    opts: { keepStructureStep: boolean; editing: boolean; requireTemplates?: boolean },
+  ) {
+    inspectionId.value = bundle.inspectionId
+    propertyId.value = bundle.propertyId
+    selectedTemplates.value = bundle.templates
+    postcode.value = bundle.postcode
+    houseNumber.value = bundle.houseNumber
+    houseNumberAddition.value = bundle.houseNumberAddition
 
     if (selectedTemplates.value.length) {
       try {
         await loadTemplateConfigs()
       } catch (err) {
-        if (opts?.requireTemplates) throw err
+        if (opts.requireTemplates) throw err
       }
     }
 
-    floors.value = local.floors
-      .slice()
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((f) => ({ id: f.id, label: f.label, sortOrder: f.sortOrder }))
-    rooms.value = local.rooms.map((r) => ({
-      id: r.id,
-      floorId: r.floorId,
-      roomType: r.roomType,
-      label: r.label,
-    }))
-
-    const byRoom: Record<string, Record<string, unknown>> = {}
-    const obsIds: Record<string, string> = {}
-    for (const obs of local.observations) {
-      if (obs.subjectType !== 'room') continue
-      const mapKey = obsMapKey(obs.subjectId, obs.attributeKey)
-      if (!obsIds[mapKey]) obsIds[mapKey] = obs.id
-      const questionKey = attributeQuestionKey(obs.attributeKey)
-      if (!byRoom[obs.subjectId]) byRoom[obs.subjectId] = {}
-      if (!(questionKey in byRoom[obs.subjectId]!)) {
-        byRoom[obs.subjectId]![questionKey] = obs.value
-      }
-    }
-    answersByRoom.value = byRoom
-    observationIdsByKey.value = obsIds
+    floors.value = bundle.floors
+    rooms.value = bundle.rooms
+    answersByRoom.value = bundle.answersByRoom
+    observationIdsByKey.value = bundle.observationIdsByKey
+    fillChecklistDefaults()
 
     const loadedPhotos: FlowPhoto[] = []
-    for (const row of local.photos) {
-      if (!row.observationId) continue
-      const obs = local.observations.find((o) => o.id === row.observationId)
-      if (!obs || obs.subjectType !== 'room') continue
-      let previewUrl: string | null = null
-      const blob = await db.photoBlobs.get(row.id)
-      if (blob) previewUrl = URL.createObjectURL(blob.blob)
+    for (const row of bundle.photos) {
       loadedPhotos.push({
-        id: row.id,
-        roomId: obs.subjectId,
-        attributeKey: obs.attributeKey,
-        observationId: row.observationId,
-        previewUrl,
+        ...row,
+        previewUrl: await resolvePhotoPreviewUrl(row.id),
       })
     }
     photos.value = loadedPhotos
 
-    if (local.inspection.status === 'completed' || local.inspection.status === 'synced') {
-      step.value = 4
-    } else if (!floors.value.length || !rooms.value.length || keepStructureStep) {
-      step.value = 2
-    } else {
-      step.value = 3
-      activeFloorId.value = floors.value[0]?.id ?? null
+    if (bundle.structureToCache) {
+      await cacheSyncedStructureLocal(bundle.structureToCache)
     }
-    return true
+
+    applyChosenStep(bundle.status, opts.keepStructureStep, opts.editing)
   }
 
-  async function resumeInspection(targetInspectionId: string) {
+  async function resumeInspection(
+    targetInspectionId: string,
+    opts?: { editing?: boolean; dossier?: InspectionDossierPayload },
+  ) {
     const keepStructureStep =
       inspectionId.value === targetInspectionId && step.value === 2
+    const editing = opts?.editing ?? false
     loading.value = true
     error.value = null
     try {
       reset()
 
-      const localPreview = await getLocalInspectionBundle(targetInspectionId)
-      const preferLocal =
-        !navigator.onLine ||
-        localPreview?.inspection?.syncStatus === 'pending' ||
-        localPreview?.inspection?.syncStatus === 'error' ||
-        localPreview?.inspection?.syncStatus === 'draft'
+      if (opts?.dossier && bundleHasStructure(opts.dossier.floors, opts.dossier.rooms)) {
+        const local = await getLocalInspectionBundle(targetInspectionId)
+        const bundle = hydrateBundleFromDossier(targetInspectionId, opts.dossier, local)
+        if (bundle) {
+          await hydrateFlowFromBundle(bundle, { keepStructureStep: false, editing })
+          return
+        }
+      }
 
-      if (preferLocal) {
-        const ok = await applyLocalBundle(targetInspectionId, keepStructureStep)
-        if (ok) return
+      const localPreview = await getLocalInspectionBundle(targetInspectionId)
+      const preferLocal = shouldPreferLocalBundle({
+        online: typeof navigator === 'undefined' ? true : navigator.onLine,
+        hasStructure: bundleHasStructure(localPreview?.floors, localPreview?.rooms),
+        syncStatus: localPreview?.inspection?.syncStatus,
+      })
+
+      if (preferLocal && localPreview) {
+        const bundle = hydrateBundleFromLocal(localPreview)
+        if (bundle) {
+          await hydrateFlowFromBundle(bundle, { keepStructureStep, editing })
+          return
+        }
       }
 
       const { inspection } = await apiFetch<{
@@ -400,44 +504,22 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
         }
       }>(`/api/inspections/${targetInspectionId}`)
 
-      inspectionId.value = inspection.id
-      propertyId.value = inspection.property_id
-
-      const pins = inspection.inspection_template_pins ?? []
-      selectedTemplates.value = pins.map((p) => ({
-        templateKey: p.template_key,
-        templateVersion: p.template_version,
-      }))
-      if (selectedTemplates.value.length) await loadTemplateConfigs()
-
       const structure = await apiFetch<{
         property: {
           postcode: string
           house_number: string
           house_number_addition: string | null
         }
-        floors: Array<{ id: string; label: string; sort_order: number }>
+        floors: Array<{ id: string; label: string; sort_order: number; updated_at?: string }>
         rooms: Array<{
           id: string
           floor_id: string
           room_type: string
           label: string | null
+          sort_order?: number
+          updated_at?: string
         }>
       }>(`/api/properties/${inspection.property_id}`)
-
-      postcode.value = structure.property.postcode
-      houseNumber.value = structure.property.house_number
-      houseNumberAddition.value = structure.property.house_number_addition ?? ''
-      floors.value = (structure.floors ?? [])
-        .slice()
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((f) => ({ id: f.id, label: f.label, sortOrder: f.sort_order }))
-      rooms.value = (structure.rooms ?? []).map((r) => ({
-        id: r.id,
-        floorId: r.floor_id,
-        roomType: r.room_type,
-        label: r.label,
-      }))
 
       const { observations } = await apiFetch<{
         observations: Array<{
@@ -446,70 +528,42 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
           subject_id: string
           attribute_key: string
           value: unknown
+          inspection_id?: string
+          property_id?: string
+          updated_at?: string
+          visibility?: Visibility
+          device_id?: string | null
         }>
       }>(`/api/observations?inspectionId=${inspection.id}`)
-
-      const byRoom: Record<string, Record<string, unknown>> = {}
-      const obsIds: Record<string, string> = {}
-      for (const obs of observations ?? []) {
-        if (obs.subject_type !== 'room') continue
-        const attributeKey = String(obs.attribute_key)
-        const mapKey = obsMapKey(obs.subject_id, attributeKey)
-        // API returns newest first; keep first id per subject+attribute.
-        if (!obsIds[mapKey]) obsIds[mapKey] = obs.id
-        const questionKey = attributeQuestionKey(attributeKey)
-        if (!byRoom[obs.subject_id]) byRoom[obs.subject_id] = {}
-        if (!(questionKey in byRoom[obs.subject_id]!)) {
-          byRoom[obs.subject_id]![questionKey] = obs.value
-        }
-      }
-      answersByRoom.value = byRoom
-      observationIdsByKey.value = obsIds
 
       const { photos: photoRows } = await apiFetch<{
         photos: Array<{
           id: string
           observation_id: string | null
           subject_id: string | null
+          subject_type?: string | null
           source_inspection_id: string | null
+          checksum?: string | null
+          storage_key?: string | null
         }>
       }>(`/api/photos?propertyId=${inspection.property_id}&inspectionId=${inspection.id}`)
 
-      const obsById = new Map((observations ?? []).map((o) => [o.id, o]))
-      const loadedPhotos: FlowPhoto[] = []
-      for (const row of photoRows ?? []) {
-        const obs = row.observation_id ? obsById.get(row.observation_id) : undefined
-        const roomId = obs?.subject_id ?? row.subject_id
-        const attributeKey = obs?.attribute_key
-        if (!roomId || !attributeKey) continue
-        let previewUrl: string | null = null
-        try {
-          const blob = await apiFetchBlob(`/api/photos/${row.id}/content`)
-          previewUrl = URL.createObjectURL(blob)
-        } catch {
-          previewUrl = null
-        }
-        loadedPhotos.push({
-          id: row.id,
-          roomId,
-          attributeKey: String(attributeKey),
-          observationId: row.observation_id,
-          previewUrl,
-        })
-      }
-      photos.value = loadedPhotos
-
-      if (inspection.status === 'completed' || inspection.status === 'synced') {
-        step.value = 4
-      } else if (!floors.value.length || !rooms.value.length || keepStructureStep) {
-        step.value = 2
-      } else {
-        step.value = 3
-        activeFloorId.value = floors.value[0]?.id ?? null
-      }
+      const bundle = hydrateBundleFromApi({
+        inspection,
+        structure,
+        observations: observations ?? [],
+        photos: photoRows ?? [],
+      })
+      await hydrateFlowFromBundle(bundle, {
+        keepStructureStep,
+        editing,
+        requireTemplates: true,
+      })
     } catch (err) {
-      const ok = await applyLocalBundle(targetInspectionId, keepStructureStep)
-      if (ok) {
+      const local = await getLocalInspectionBundle(targetInspectionId)
+      const bundle = local ? hydrateBundleFromLocal(local) : null
+      if (bundle) {
+        await hydrateFlowFromBundle(bundle, { keepStructureStep, editing })
         error.value = null
         return
       }
@@ -582,6 +636,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
       roomType: row.roomType,
       label: row.label,
     })
+    fillChecklistDefaults(row.id)
   }
 
   async function removeRoom(roomId: string) {
@@ -609,7 +664,11 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     if (!room) return
     const current = { ...(answersByRoom.value[roomId] ?? {}), [questionKey]: value }
     const roomType = merged.value.roomTypes.find((rt: { id: string }) => rt.id === room.roomType)
-    answersByRoom.value[roomId] = roomType ? clearHiddenAnswers(roomType, current) : current
+    const cleared = roomType ? clearHiddenAnswers(roomType, current) : current
+    answersByRoom.value[roomId] = applyNoneOfTheseDefaults(
+      listMergedVisibleQuestions(merged.value, room.roomType, cleared),
+      cleared,
+    )
   }
 
   async function ensureObservation(roomId: string, attributeKey: string) {
@@ -622,7 +681,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
 
     const questionKey = attributeQuestionKey(attributeKey)
     const value = answersByRoom.value[roomId]?.[questionKey] ?? null
-    const id = uuid()
+    const id = newId()
     await saveObservationsLocal([
       {
         id,
@@ -678,13 +737,14 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     saving.value = true
     error.value = null
     try {
+      fillChecklistDefaults()
       const nextObsIds = { ...observationIdsByKey.value }
       const observations = rooms.value.flatMap((room) => {
         const answers = answersByRoom.value[room.id] ?? {}
         return Object.entries(answers).map(([questionKey, value]) => {
           const attributeKey = `room.${questionKey}`
           const mapKey = obsMapKey(room.id, attributeKey)
-          const id = nextObsIds[mapKey] ?? uuid()
+          const id = nextObsIds[mapKey] ?? newId()
           nextObsIds[mapKey] = id
           return {
             id,
@@ -755,14 +815,15 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
   }
 
-  async function reopenInspection(targetInspectionId: string) {
+  async function reopenInspection(
+    targetInspectionId: string,
+    dossier?: InspectionDossierPayload,
+  ) {
     saving.value = true
     error.value = null
     try {
       await reopenInspectionLocal(targetInspectionId)
-      if (inspectionId.value === targetInspectionId) {
-        step.value = 3
-      }
+      await resumeInspection(targetInspectionId, { editing: true, dossier })
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err)
       throw err
@@ -781,6 +842,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     propertyId,
     inspectionId,
     postcode,
+    postcodeIsComplete,
     houseNumber,
     houseNumberAddition,
     selectedTemplates,
@@ -814,6 +876,8 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     reset,
     startInspection,
     resumeInspection,
+    addInspectionTemplate,
+    removeInspectionTemplate,
     hasFloorLabel,
     addFloor,
     removeFloor,

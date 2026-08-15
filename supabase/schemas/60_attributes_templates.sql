@@ -1,5 +1,5 @@
 create type public.answer_scope as enum ('room', 'floor', 'property', 'asset');
-create type public.answer_type as enum ('boolean', 'choice', 'text', 'number');
+create type public.answer_type as enum ('boolean', 'choice', 'multiChoice', 'text', 'number');
 
 create table public.attributes (
   attribute_key text primary key,

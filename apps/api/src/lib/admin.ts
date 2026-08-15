@@ -27,6 +27,26 @@ export function assertDashboardCaller(auth: AuthContext) {
   throw new ApiError(403, 'forbidden', 'API key or org admin required')
 }
 
+/** JWT org admin only (e.g. minting API keys — not via API key itself). */
+export function assertOrgAdminJwt(auth: AuthContext) {
+  if (auth.kind === 'user' && auth.orgRole === 'admin') return
+  throw new ApiError(403, 'forbidden', 'Only org admins can perform this action')
+}
+
+/** API key or JWT org admin (assignments, dashboard writes). */
+export function assertApiKeyOrAdmin(auth: AuthContext) {
+  assertDashboardCaller(auth)
+}
+
+export async function assertPlatformCaller(env: Env, auth: AuthContext): Promise<CallerOrg> {
+  assertDashboardCaller(auth)
+  const caller = await loadCallerOrg(env, auth)
+  if (caller.org_type !== 'platform') {
+    throw new ApiError(403, 'forbidden', 'Platform organization required')
+  }
+  return caller
+}
+
 export async function loadCallerOrg(env: Env, auth: AuthContext): Promise<CallerOrg> {
   const db = createServiceClient(env)
   const { data, error } = await db
@@ -84,4 +104,108 @@ export async function ensureOrgMember(
     { onConflict: 'org_id,user_id' },
   )
   if (error) throw new ApiError(400, 'db_error', error.message)
+}
+
+export type OrgRow = {
+  id: string
+  tenant_id: string
+  name: string
+  org_type: 'inspection' | 'client' | 'platform'
+  external_id: string | null
+  _created?: boolean
+}
+
+export async function resolveTargetOrg(
+  service: SupabaseClient,
+  caller: CallerOrg,
+  auth: { kind: string; orgId: string },
+  organization:
+    | {
+        externalId?: string
+        name?: string
+        orgType?: 'inspection' | 'client' | 'platform'
+        id?: string
+      }
+    | undefined,
+): Promise<OrgRow> {
+  if (!organization || (!organization.externalId && !organization.id && !organization.name)) {
+    return { ...caller, _created: false }
+  }
+
+  if (organization.id) {
+    if (organization.id !== caller.id && caller.org_type !== 'platform') {
+      throw new ApiError(403, 'forbidden', 'Only platform keys can provision into another org by id')
+    }
+    const { data, error } = await service
+      .from('organizations')
+      .select('id, tenant_id, name, org_type, external_id')
+      .eq('id', organization.id)
+      .maybeSingle()
+    if (error) throw new ApiError(500, 'db_error', error.message)
+    if (!data) throw new ApiError(404, 'not_found', 'Organization not found')
+    if (data.tenant_id !== caller.tenant_id) {
+      throw new ApiError(403, 'forbidden', 'Organization is outside caller tenant')
+    }
+    return { ...(data as OrgRow), _created: false }
+  }
+
+  if (organization.externalId) {
+    const { data: existing, error } = await service
+      .from('organizations')
+      .select('id, tenant_id, name, org_type, external_id')
+      .eq('tenant_id', caller.tenant_id)
+      .eq('external_id', organization.externalId)
+      .maybeSingle()
+    if (error) throw new ApiError(500, 'db_error', error.message)
+
+    if (existing) {
+      if (existing.id !== caller.id && caller.org_type !== 'platform') {
+        throw new ApiError(403, 'forbidden', 'Only platform keys can provision into another org')
+      }
+      if (organization.name && organization.name !== existing.name) {
+        await service.from('organizations').update({ name: organization.name }).eq('id', existing.id)
+        return { ...(existing as OrgRow), name: organization.name, _created: false }
+      }
+      return { ...(existing as OrgRow), _created: false }
+    }
+
+    if (caller.org_type !== 'platform') {
+      throw new ApiError(403, 'forbidden', 'Only platform keys can create organizations')
+    }
+    if (!organization.name) {
+      throw new ApiError(400, 'validation_error', 'organization.name required when creating org')
+    }
+
+    const { data: created, error: createError } = await service
+      .from('organizations')
+      .insert({
+        tenant_id: caller.tenant_id,
+        name: organization.name,
+        org_type: organization.orgType ?? 'inspection',
+        external_id: organization.externalId,
+      })
+      .select('id, tenant_id, name, org_type, external_id')
+      .single()
+    if (createError) throw new ApiError(400, 'db_error', createError.message)
+    return { ...(created as OrgRow), _created: true }
+  }
+
+  if (organization.name) {
+    if (caller.org_type !== 'platform') {
+      throw new ApiError(403, 'forbidden', 'Only platform keys can create organizations')
+    }
+    const { data: created, error: createError } = await service
+      .from('organizations')
+      .insert({
+        tenant_id: caller.tenant_id,
+        name: organization.name,
+        org_type: organization.orgType ?? 'inspection',
+      })
+      .select('id, tenant_id, name, org_type, external_id')
+      .single()
+    if (createError) throw new ApiError(400, 'db_error', createError.message)
+    return { ...(created as OrgRow), _created: true }
+  }
+
+  return { ...caller, _created: false }
 }

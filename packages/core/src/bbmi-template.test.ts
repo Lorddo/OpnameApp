@@ -9,7 +9,10 @@ import {
   parseInspectionTemplate,
 } from './index.js'
 
-const templatesDir = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../templates/bbmi')
+const templatesDir = path.resolve(
+  fileURLToPath(new URL('.', import.meta.url)),
+  '../../../templates/bbmi',
+)
 
 function loadBbmi(filename: string) {
   const raw = JSON.parse(readFileSync(path.join(templatesDir, filename), 'utf8'))
@@ -89,6 +92,21 @@ describe('BBMI 1.0.0', () => {
     )
     expect(result.isComplete).toBe(false)
     expect(result.missingPhotoCount).toBe(1)
+  })
+
+  it('still requires a photo when toegankelijkVoorAuto is no', () => {
+    const result = evaluateTemplateCompleteness(
+      bbmi,
+      [{ id: 'room-1', roomType: 'omgebouwdeBergruimte' }],
+      { 'room-1': { toegankelijkVoorAuto: false, geisoleerd: false } },
+    )
+    expect(result.isComplete).toBe(false)
+    expect(result.missingPhotoCount).toBe(1)
+
+    const question = bbmi.roomTypes
+      .find((rt) => rt.id === 'omgebouwdeBergruimte')
+      ?.questions.find((q) => q.attributeKey === 'room.toegankelijkVoorAuto')
+    expect(question?.photoRequiredWhen).toBe('always')
   })
 })
 

@@ -84,42 +84,47 @@ export const useProjectsStore = defineStore('projects', () => {
     return [...byId.values()]
   }
 
+  /** Refresh in-memory lists from Dexie after pull (avoids a second API list fetch). */
+  async function loadFromLocal() {
+    const localInspections = await db.inspections.toArray()
+    const localProperties = await db.properties.toArray()
+    const cachedTemplates = await db.templates.toArray()
+    properties.value = localProperties.map((p) => ({
+      id: p.id,
+      postcode: p.postcode,
+      house_number: p.houseNumber,
+      house_number_addition: p.houseNumberAddition,
+      city: p.city,
+      updated_at: p.updatedAt,
+    }))
+    inspections.value = localInspections
+      .map((row) => ({
+        id: row.id,
+        property_id: row.propertyId,
+        status: row.status,
+        updated_at: row.updatedAt,
+        sync_status: row.syncStatus,
+        inspection_template_pins: row.templates.map((t) => ({
+          template_key: t.templateKey,
+          template_version: t.templateVersion,
+        })),
+      }))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    templates.value = cachedTemplates.map((t) => ({
+      template_key: t.templateKey,
+      version: t.version,
+      label: t.label,
+      locale: t.locale,
+    }))
+  }
+
   async function loadAll() {
     loading.value = true
     error.value = null
     try {
       void flushOutbox()
       if (!navigator.onLine) {
-        const localInspections = await db.inspections.toArray()
-        const localProperties = await db.properties.toArray()
-        properties.value = localProperties.map((p) => ({
-          id: p.id,
-          postcode: p.postcode,
-          house_number: p.houseNumber,
-          house_number_addition: p.houseNumberAddition,
-          city: p.city,
-          updated_at: p.updatedAt,
-        }))
-        inspections.value = localInspections
-          .map((row) => ({
-            id: row.id,
-            property_id: row.propertyId,
-            status: row.status,
-            updated_at: row.updatedAt,
-            sync_status: row.syncStatus,
-            inspection_template_pins: row.templates.map((t) => ({
-              template_key: t.templateKey,
-              template_version: t.templateVersion,
-            })),
-          }))
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-        const cachedTemplates = await db.templates.toArray()
-        templates.value = cachedTemplates.map((t) => ({
-          template_key: t.templateKey,
-          version: t.version,
-          label: t.label,
-          locale: t.locale,
-        }))
+        await loadFromLocal()
         return
       }
 
@@ -136,8 +141,7 @@ export const useProjectsStore = defineStore('projects', () => {
       try {
         const localInspections = await db.inspections.toArray()
         if (localInspections.length) {
-          inspections.value = await mergeLocalInspections([])
-          properties.value = await mergeLocalProperties([])
+          await loadFromLocal()
           error.value = null
           return
         }
@@ -179,6 +183,7 @@ export const useProjectsStore = defineStore('projects', () => {
     loading,
     error,
     loadAll,
+    loadFromLocal,
     removeLocalProperty,
   }
 })

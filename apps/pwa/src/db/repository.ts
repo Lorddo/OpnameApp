@@ -1,11 +1,14 @@
+import type { Visibility } from '@opnameapp/core'
+import { formatNlPostcode } from '@opnameapp/core'
 import { cloneForIdb } from './clone'
 import { db } from './index'
 import { getDeviceId } from './device-id'
-import { newId } from './ids'
+import { newId, nowIso } from './ids'
 import { enqueueOutbox } from './outbox'
 import { preparePhotoForUpload } from './photo-prepare'
 import { emitSyncChange } from './sync-events'
 import { flushOutbox } from './sync'
+import { isBusySyncStatus } from './sync-status'
 import type {
   LocalFloor,
   LocalInspection,
@@ -14,11 +17,10 @@ import type {
   LocalProperty,
   LocalRoom,
   OutboxOp,
+  SyncStatus,
 } from './types'
 
-function nowIso() {
-  return new Date().toISOString()
-}
+export { isBusySyncStatus } from './sync-status'
 
 /** Outbox rows still waiting for a given entity (used for dependsOn chaining). */
 async function pendingOutboxIdsFor(entityId: string, op?: OutboxOp): Promise<string[]> {
@@ -38,7 +40,7 @@ export async function createPropertyLocal(input: {
   const id = input.id ?? newId()
   const row: LocalProperty = {
     id,
-    postcode: input.postcode,
+    postcode: formatNlPostcode(input.postcode),
     houseNumber: input.houseNumber,
     houseNumberAddition: input.houseNumberAddition ?? null,
     city: input.city ?? null,
@@ -193,7 +195,7 @@ export async function saveObservationsLocal(
     subjectType: 'property' | 'floor' | 'room' | 'asset'
     subjectId: string
     value: unknown
-    visibility?: 'private' | 'shared' | 'public_to_client'
+    visibility?: Visibility
   }>,
 ): Promise<LocalObservation[]> {
   const deviceId = getDeviceId()
@@ -212,21 +214,85 @@ export async function saveObservationsLocal(
     syncStatus: 'pending',
   }))
   await db.observations.bulkPut(cloneForIdb(rows))
-  await enqueueOutbox('observations.batch', observations[0]?.inspectionId ?? newId(), {
-    observations: rows.map((r) => ({
-      id: r.id,
-      propertyId: r.propertyId,
-      inspectionId: r.inspectionId,
-      attributeKey: r.attributeKey,
-      subjectType: r.subjectType,
-      subjectId: r.subjectId,
-      value: r.value,
-      visibility: r.visibility,
-      deviceId: r.deviceId,
-    })),
-  })
+  const inspectionId = observations[0]?.inspectionId ?? newId()
+  const roomIds = [
+    ...new Set(
+      observations.filter((o) => o.subjectType === 'room').map((o) => o.subjectId),
+    ),
+  ]
+  const dependsOn = [
+    ...(await pendingOutboxIdsFor(inspectionId, 'inspection.upsert')),
+    ...(
+      await Promise.all(roomIds.map((roomId) => pendingOutboxIdsFor(roomId, 'room.upsert')))
+    ).flat(),
+  ]
+  await enqueueOutbox(
+    'observations.batch',
+    inspectionId,
+    {
+      observations: rows.map((r) => ({
+        id: r.id,
+        propertyId: r.propertyId,
+        inspectionId: r.inspectionId,
+        attributeKey: r.attributeKey,
+        subjectType: r.subjectType,
+        subjectId: r.subjectId,
+        value: r.value,
+        visibility: r.visibility,
+        deviceId: r.deviceId,
+      })),
+    },
+    dependsOn,
+  )
   void flushOutbox()
   return rows
+}
+
+type InspectionUpsertPayload = {
+  id: string
+  propertyId: string
+  status: string
+  templates: Array<{ templateKey: string; templateVersion: string }>
+}
+
+async function pendingInspectionUpsert(inspectionId: string) {
+  const outbox = await db.outbox.toArray()
+  return outbox.find((row) => row.op === 'inspection.upsert' && row.entityId === inspectionId)
+}
+
+export async function updateInspectionTemplatesLocal(
+  inspectionId: string,
+  templates: Array<{ templateKey: string; templateVersion: string }>,
+) {
+  const next = templates.map((t) => ({
+    templateKey: t.templateKey,
+    templateVersion: t.templateVersion,
+  }))
+  await db.inspections.update(inspectionId, {
+    templates: next,
+    updatedAt: nowIso(),
+    syncStatus: 'pending',
+  })
+
+  const pendingUpsert = await pendingInspectionUpsert(inspectionId)
+  if (pendingUpsert) {
+    // Fold into the create — a follow-up patch races if it runs before upsert lands.
+    const payload = pendingUpsert.payload as InspectionUpsertPayload
+    await db.outbox.update(pendingUpsert.id, {
+      payload: cloneForIdb({ ...payload, templates: next }),
+    })
+    void flushOutbox()
+    return
+  }
+
+  const dependsOn = await pendingOutboxIdsFor(inspectionId, 'inspection.upsert')
+  await enqueueOutbox(
+    'inspection.patch',
+    inspectionId,
+    { id: inspectionId, templates: next },
+    dependsOn,
+  )
+  void flushOutbox()
 }
 
 export async function completeInspectionLocal(inspectionId: string, completedAt = nowIso()) {
@@ -236,11 +302,26 @@ export async function completeInspectionLocal(inspectionId: string, completedAt 
     updatedAt: nowIso(),
     syncStatus: 'pending',
   })
-  await enqueueOutbox('inspection.patch', inspectionId, {
-    id: inspectionId,
-    status: 'completed',
-    completedAt,
-  })
+
+  const pendingUpsert = await pendingInspectionUpsert(inspectionId)
+  if (pendingUpsert) {
+    const payload = pendingUpsert.payload as InspectionUpsertPayload
+    await db.outbox.update(pendingUpsert.id, {
+      payload: cloneForIdb({ ...payload, status: 'completed' }),
+    })
+  }
+
+  const dependsOn = await pendingOutboxIdsFor(inspectionId, 'inspection.upsert')
+  await enqueueOutbox(
+    'inspection.patch',
+    inspectionId,
+    {
+      id: inspectionId,
+      status: 'completed',
+      completedAt,
+    },
+    dependsOn,
+  )
   void flushOutbox()
 }
 
@@ -251,11 +332,26 @@ export async function reopenInspectionLocal(inspectionId: string) {
     updatedAt: nowIso(),
     syncStatus: 'pending',
   })
-  await enqueueOutbox('inspection.patch', inspectionId, {
-    id: inspectionId,
-    status: 'in_progress',
-    completedAt: null,
-  })
+
+  const pendingUpsert = await pendingInspectionUpsert(inspectionId)
+  if (pendingUpsert) {
+    const payload = pendingUpsert.payload as InspectionUpsertPayload
+    await db.outbox.update(pendingUpsert.id, {
+      payload: cloneForIdb({ ...payload, status: 'in_progress' }),
+    })
+  }
+
+  const dependsOn = await pendingOutboxIdsFor(inspectionId, 'inspection.upsert')
+  await enqueueOutbox(
+    'inspection.patch',
+    inspectionId,
+    {
+      id: inspectionId,
+      status: 'in_progress',
+      completedAt: null,
+    },
+    dependsOn,
+  )
   void flushOutbox()
 }
 
@@ -291,6 +387,15 @@ export async function savePhotoLocal(input: {
 
   const metaOutboxId = newId()
   const contentOutboxId = newId()
+  const metaDependsOn = [
+    ...(input.sourceInspectionId
+      ? await pendingOutboxIdsFor(input.sourceInspectionId, 'inspection.upsert')
+      : []),
+    ...(input.sourceInspectionId
+      ? await pendingOutboxIdsFor(input.sourceInspectionId, 'observations.batch')
+      : []),
+    ...(input.observationId ? await pendingOutboxIdsFor(input.observationId) : []),
+  ]
   await db.transaction('rw', db.photos, db.photoBlobs, db.outbox, async () => {
     await db.photos.put(cloneForIdb(row))
     await db.photoBlobs.put({ photoId: id, blob: prepared.blob })
@@ -309,7 +414,7 @@ export async function savePhotoLocal(input: {
           checksum: prepared.checksum,
           sourceInspectionId: row.sourceInspectionId,
         },
-        dependsOn: [],
+        dependsOn: metaDependsOn,
         createdAt: updatedAt,
         attempts: 0,
         nextAttemptAt: updatedAt,
@@ -344,6 +449,45 @@ export async function getLocalInspectionBundle(inspectionId: string) {
   const observations = await db.observations.where('inspectionId').equals(inspectionId).toArray()
   const photos = await db.photos.where('sourceInspectionId').equals(inspectionId).toArray()
   return { inspection, property, floors, rooms, observations, photos }
+}
+
+/** All local rows for a property (dossier fallback when the export API is unavailable). */
+export async function getLocalPropertyBundle(propertyId: string) {
+  const property = await db.properties.get(propertyId)
+  if (!property) return null
+  const [floors, rooms, inspections, observations, photos] = await Promise.all([
+    db.floors.where('propertyId').equals(propertyId).toArray(),
+    db.rooms.where('propertyId').equals(propertyId).toArray(),
+    db.inspections.where('propertyId').equals(propertyId).toArray(),
+    db.observations.where('propertyId').equals(propertyId).toArray(),
+    db.photos.where('propertyId').equals(propertyId).toArray(),
+  ])
+  return { property, floors, rooms, inspections, observations, photos }
+}
+
+/**
+ * Cache server/dossier structure into IndexedDB without enqueueing outbox ops.
+ * Skips rows that still have local pending/error writes.
+ */
+export async function cacheSyncedStructureLocal(input: {
+  floors?: LocalFloor[]
+  rooms?: LocalRoom[]
+  observations?: LocalObservation[]
+  photos?: LocalPhoto[]
+}) {
+  async function putIdle<T extends { id: string }>(
+    table: 'floors' | 'rooms' | 'observations' | 'photos',
+    row: T,
+  ) {
+    const existing = await db.table(table).get(row.id)
+    if (isBusySyncStatus((existing as { syncStatus?: SyncStatus } | undefined)?.syncStatus)) return
+    await db.table(table).put(cloneForIdb(row))
+  }
+
+  for (const row of input.floors ?? []) await putIdle('floors', row)
+  for (const row of input.rooms ?? []) await putIdle('rooms', row)
+  for (const row of input.observations ?? []) await putIdle('observations', row)
+  for (const row of input.photos ?? []) await putIdle('photos', row)
 }
 
 /**

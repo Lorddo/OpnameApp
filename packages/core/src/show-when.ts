@@ -353,7 +353,8 @@ function compare(left: unknown, op: ComparisonOp, right: ShowWhenValue): boolean
     if (!Array.isArray(right)) {
       throw new ShowWhenEvalError('Operator "in" requires a list value')
     }
-    return right.some((item) => Object.is(item, left) || item === left)
+    const leftValues = Array.isArray(left) ? left : [left]
+    return leftValues.some((item) => right.some((candidate) => Object.is(candidate, item) || candidate === item))
   }
 
   if (typeof left === 'number' && typeof right === 'number') {

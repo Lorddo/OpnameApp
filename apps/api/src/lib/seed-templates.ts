@@ -1,6 +1,7 @@
 import { parseInspectionTemplate, type InspectionTemplate } from '@opnameapp/core'
-import bbmiV010 from '../seed/bbmi-0.1.0.json'
-import bbmiV100 from '../seed/bbmi-1.0.0.json'
+import bbmiV010 from '../../../../templates/bbmi/bbmi-0.1.0.json'
+import bbmiV100 from '../../../../templates/bbmi/bbmi-1.0.0.json'
+import wwsV010 from '../../../../templates/wws/wws-0.1.0.json'
 import type { Env } from '../env.js'
 import { createServiceClient } from './supabase.js'
 
@@ -16,6 +17,7 @@ export function templateQuestionSignature(config: unknown): string {
         k: q.attributeKey ?? null,
         o: q.sortOrder ?? null,
         p: q.photoRequired ?? null,
+        pw: q.photoRequiredWhen ?? null,
         w: q.showWhen ?? null,
         h: q.helpTextOverride ?? null,
       })),
@@ -42,19 +44,16 @@ function attributeRows(parsed: InspectionTemplate) {
 type SeedMode = 'insert-only' | 'upsert-if-changed'
 
 /**
- * 0.1.0 is insert-only so already-pinned inspections keep their snapshot.
- * 1.0.0 is the published BBMI and may be updated while staging still iterates.
+ * BBMI 0.1.0 is insert-only so already-pinned inspections keep their snapshot.
+ * BBMI 1.0.0 and WWS 0.1.0 may be updated while staging still iterates.
  */
 const SEEDED_TEMPLATES: Array<{ json: unknown; mode: SeedMode }> = [
   { json: bbmiV010, mode: 'insert-only' },
   { json: bbmiV100, mode: 'upsert-if-changed' },
+  { json: wwsV010, mode: 'upsert-if-changed' },
 ]
 
-async function seedTemplate(
-  env: Env,
-  json: unknown,
-  mode: SeedMode,
-): Promise<InspectionTemplate> {
+async function seedTemplate(env: Env, json: unknown, mode: SeedMode): Promise<InspectionTemplate> {
   const service = createServiceClient(env)
   const parsed = parseInspectionTemplate(json)
   const { data } = await service

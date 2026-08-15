@@ -4,8 +4,7 @@
     "lib": ["ES2022"],
     "types": ["@cloudflare/workers-types"],
     "noEmit": true,
-    "rootDir": "src",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.json"]
+  "include": ["src/**/*.ts", "src/**/*.json", "../../templates/**/*.json"]
 }

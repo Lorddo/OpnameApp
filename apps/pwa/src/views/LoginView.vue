@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
+import { inputClass } from '@/lib/ui'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
@@ -42,7 +43,7 @@ async function onSubmit() {
           type="email"
           required
           autocomplete="username"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4 text-base"
+          :class="inputClass"
         />
       </label>
       <label class="block space-y-2">
@@ -52,7 +53,7 @@ async function onSubmit() {
           type="password"
           required
           autocomplete="current-password"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4 text-base"
+          :class="inputClass"
         />
       </label>
       <p v-if="auth.error" class="text-sm text-destructive">{{ auth.error }}</p>

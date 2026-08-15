@@ -2,8 +2,10 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../index.js'
 import { requireAuth } from '../middleware/auth.js'
-import { dbForAuth } from '../lib/db.js'
+import { assertPwaWrite, dbForAuth } from '../lib/db.js'
 import { ApiError } from '../lib/errors.js'
+import { throwIfDbError } from '../lib/db-result.js'
+import { scheduleWebhookEnqueue } from '../lib/webhook-schedule.js'
 
 export const observationsRoutes = new Hono<AppEnv>()
 observationsRoutes.use('*', requireAuth)
@@ -27,6 +29,7 @@ const batchSchema = z.object({
 
 observationsRoutes.post('/batch', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const body = batchSchema.parse(await c.req.json())
 
@@ -52,6 +55,12 @@ observationsRoutes.post('/batch', async (c) => {
     .select('id')
 
   if (error) throw new ApiError(400, 'db_error', error.message)
+
+  const inspectionIds = [...new Set(body.observations.map((o) => o.inspectionId))]
+  for (const inspectionId of inspectionIds) {
+    scheduleWebhookEnqueue(c, inspectionId, 'webhook_enqueue_after_observations')
+  }
+
   return c.json({ upserted: data?.length ?? 0, ids: (data ?? []).map((r) => r.id) })
 })
 
@@ -67,6 +76,6 @@ observationsRoutes.get('/', async (c) => {
   query = query.eq('owner_org_id', auth.orgId)
 
   const { data, error } = await query
-  if (error) throw new ApiError(500, 'db_error', error.message)
+  throwIfDbError(error)
   return c.json({ observations: data ?? [] })
 })

@@ -3,7 +3,8 @@ import { z } from 'zod'
 import type { AppEnv } from '../index.js'
 import { requireAuth } from '../middleware/auth.js'
 import { dbForAuth } from '../lib/db.js'
-import { ApiError } from '../lib/errors.js'
+import { assertApiKeyOrAdmin } from '../lib/admin.js'
+import { throwIfDbError } from '../lib/db-result.js'
 
 export const assignmentsRoutes = new Hono<AppEnv>()
 assignmentsRoutes.use('*', requireAuth)
@@ -18,10 +19,7 @@ const assignmentSchema = z.object({
 
 assignmentsRoutes.post('/', async (c) => {
   const auth = c.get('auth')!
-  if (!auth) throw new ApiError(401, 'unauthorized', 'Not authenticated')
-  if (auth.kind === 'user' && auth.orgRole !== 'admin') {
-    throw new ApiError(403, 'forbidden', 'Admin or API key required')
-  }
+  assertApiKeyOrAdmin(auth)
 
   const body = assignmentSchema.parse(await c.req.json())
   const db = dbForAuth(c.env, auth)
@@ -41,6 +39,6 @@ assignmentsRoutes.post('/', async (c) => {
     .select('*')
     .single()
 
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ assignment: data }, 201)
 })

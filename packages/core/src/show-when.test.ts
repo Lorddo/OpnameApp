@@ -45,6 +45,16 @@ describe('evaluateShowWhen', () => {
     expect(evaluateShowWhen(ast, { roomAnswers: {} })).toBe(false)
   })
 
+  it('treats multiChoice arrays as a match when any selected value is in the list', () => {
+    const ast = parseShowWhen('room.this.sanitaireVoorzieningen in ["douche", "badDouche"]')
+    expect(
+      evaluateShowWhen(ast, { roomAnswers: { sanitaireVoorzieningen: ['wastafel', 'douche'] } }),
+    ).toBe(true)
+    expect(evaluateShowWhen(ast, { roomAnswers: { sanitaireVoorzieningen: ['wastafel'] } })).toBe(
+      false,
+    )
+  })
+
   it('throws a clear error for unsupported selectors', () => {
     const ast = parseShowWhen('floor.this.demo = true')
     expect(() => evaluateShowWhen(ast, { roomAnswers: {} })).toThrow(ShowWhenEvalError)

@@ -38,11 +38,20 @@ export const useSyncStore = defineStore('sync', () => {
     const map: Record<string, SyncStatus> = {}
     for (const row of inspections) {
       map[row.id] = row.syncStatus
-      if (row.syncStatus === 'error' && row.lastSyncError && !lastError.value) {
-        lastError.value = row.lastSyncError
-      }
     }
     inspectionSyncById.value = map
+
+    if (failedCount.value === 0) {
+      lastError.value = null
+      return
+    }
+    const erroredOutbox = await db.outbox.filter((i) => i.lastError != null).first()
+    if (erroredOutbox?.lastError) {
+      lastError.value = erroredOutbox.lastError
+      return
+    }
+    const erroredInspection = inspections.find((row) => row.syncStatus === 'error' && row.lastSyncError)
+    lastError.value = erroredInspection?.lastSyncError ?? null
   }
 
   async function syncNow() {
@@ -80,7 +89,7 @@ export const useSyncStore = defineStore('sync', () => {
       }
 
       try {
-        await useProjectsStore().loadAll()
+        await useProjectsStore().loadFromLocal()
       } catch {
         // Non-fatal: sync itself may have succeeded
       }

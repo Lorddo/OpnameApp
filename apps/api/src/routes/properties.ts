@@ -2,8 +2,11 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../index.js'
 import { requireAuth } from '../middleware/auth.js'
-import { assertPropertyAccess, dbForAuth } from '../lib/db.js'
+import { assertPropertyAccess, assertPwaWrite, dbForAuth } from '../lib/db.js'
 import { ApiError } from '../lib/errors.js'
+import { throwIfDbError, requireRow } from '../lib/db-result.js'
+import { loadPropertyStructure } from '../lib/property-bundle.js'
+import { nlPostcodeSchema } from '../lib/schemas.js'
 
 export const propertiesRoutes = new Hono<AppEnv>()
 propertiesRoutes.use('*', requireAuth)
@@ -11,7 +14,7 @@ propertiesRoutes.use('*', requireAuth)
 const createPropertySchema = z.object({
   id: z.string().uuid().optional(),
   homeOrgId: z.string().uuid().optional(),
-  postcode: z.string().min(1),
+  postcode: nlPostcodeSchema,
   houseNumber: z.string().min(1),
   houseNumberAddition: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -31,12 +34,13 @@ propertiesRoutes.get('/', async (c) => {
     .or(`home_org_id.eq.${auth.orgId},created_by_org_id.eq.${auth.orgId}`)
     .order('updated_at', { ascending: false })
 
-  if (error) throw new ApiError(500, 'db_error', error.message)
+  throwIfDbError(error)
   return c.json({ properties: data ?? [] })
 })
 
 propertiesRoutes.post('/', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const body = createPropertySchema.parse(await c.req.json())
   const db = dbForAuth(c.env, auth)
   const homeOrgId = body.homeOrgId ?? auth.orgId
@@ -48,7 +52,7 @@ propertiesRoutes.post('/', async (c) => {
       .eq('org_id', auth.orgId)
       .eq('user_id', auth.userId)
       .maybeSingle()
-    if (memError) throw new ApiError(500, 'db_error', memError.message)
+    throwIfDbError(memError)
     if (!membership) {
       throw new ApiError(403, 'forbidden', 'Not a member of this organization')
     }
@@ -68,7 +72,7 @@ propertiesRoutes.post('/', async (c) => {
   }
 
   const { data, error } = await db.from('properties').insert(row).select('*').single()
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ property: data }, 201)
 })
 
@@ -79,20 +83,14 @@ propertiesRoutes.get('/:id', async (c) => {
   await assertPropertyAccess(db, auth, id)
 
   const { data: property, error } = await db.from('properties').select('*').eq('id', id).maybeSingle()
-  if (error) throw new ApiError(500, 'db_error', error.message)
-  if (!property) throw new ApiError(404, 'not_found', 'Property not found')
+  throwIfDbError(error)
+  requireRow(property, 'Property not found')
 
-  const [floors, rooms, assets] = await Promise.all([
-    db.from('floors').select('*').eq('property_id', id).order('sort_order'),
-    db.from('rooms').select('*').eq('property_id', id).order('sort_order'),
-    db.from('assets').select('*').eq('property_id', id),
-  ])
+  const structure = await loadPropertyStructure(db, id)
 
   return c.json({
     property,
-    floors: floors.data ?? [],
-    rooms: rooms.data ?? [],
-    assets: assets.data ?? [],
+    ...structure,
   })
 })
 
@@ -104,6 +102,7 @@ const floorSchema = z.object({
 
 propertiesRoutes.post('/:id/floors', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const propertyId = c.req.param('id')
   await assertPropertyAccess(db, auth, propertyId)
@@ -120,7 +119,7 @@ propertiesRoutes.post('/:id/floors', async (c) => {
     .select('*')
     .single()
 
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ floor: data }, 201)
 })
 
@@ -134,6 +133,7 @@ const roomSchema = z.object({
 
 propertiesRoutes.post('/:id/rooms', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const propertyId = c.req.param('id')
   await assertPropertyAccess(db, auth, propertyId)
@@ -152,30 +152,32 @@ propertiesRoutes.post('/:id/rooms', async (c) => {
     .select('*')
     .single()
 
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ room: data }, 201)
 })
 
 propertiesRoutes.delete('/:id/floors/:floorId', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const propertyId = c.req.param('id')
   const floorId = c.req.param('floorId')
   await assertPropertyAccess(db, auth, propertyId)
 
   const { error } = await db.from('floors').delete().eq('id', floorId).eq('property_id', propertyId)
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ ok: true })
 })
 
 propertiesRoutes.delete('/:id/rooms/:roomId', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const propertyId = c.req.param('id')
   const roomId = c.req.param('roomId')
   await assertPropertyAccess(db, auth, propertyId)
 
   const { error } = await db.from('rooms').delete().eq('id', roomId).eq('property_id', propertyId)
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
   return c.json({ ok: true })
 })

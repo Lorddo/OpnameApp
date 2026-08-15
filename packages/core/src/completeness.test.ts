@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { clearHiddenAnswers, evaluateRoomCompleteness, evaluateTemplateCompleteness, listVisibleQuestions } from './completeness.js'
+import {
+  applyNoneOfTheseDefaults,
+  clearHiddenAnswers,
+  evaluateRoomCompleteness,
+  evaluateTemplateCompleteness,
+  isPhotoRequired,
+  listVisibleQuestions,
+  NONE_OPTION,
+  withNoneOfTheseDefault,
+} from './completeness.js'
 import type { InspectionTemplate } from './template-schema.js'
 
 const template: InspectionTemplate = {
@@ -92,17 +101,200 @@ describe('completeness', () => {
     expect(result.rooms.map((row) => row.roomId)).toEqual(['r1'])
     expect(result.isComplete).toBe(true)
   })
+
+  it('defaults empty checklists with geen to none of these and skips photos', () => {
+    const listTemplate: InspectionTemplate = {
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'room.voorzieningen': {
+          answerScope: 'room',
+          questionKey: 'voorzieningen',
+          label: 'Voorzieningen?',
+          answerType: 'multiChoice',
+          options: [
+            { value: 'douche', label: 'Douche' },
+            { value: 'geen', label: 'Geen van deze' },
+          ],
+        },
+      },
+      roomTypes: [
+        {
+          id: 'badkamer',
+          label: 'Badkamer',
+          allowMultiplePerFloor: true,
+          questions: [{ attributeKey: 'room.voorzieningen', sortOrder: 1, photoRequired: true }],
+        },
+      ],
+    }
+
+    const empty = evaluateRoomCompleteness(listTemplate, 'badkamer', { voorzieningen: [] })
+    expect(empty.missingAttributeKeys).toEqual([])
+    expect(empty.missingPhotoAttributeKeys).toEqual([])
+    expect(empty.isComplete).toBe(true)
+
+    const none = evaluateRoomCompleteness(listTemplate, 'badkamer', { voorzieningen: ['geen'] })
+    expect(none.missingAttributeKeys).toEqual([])
+    expect(none.missingPhotoAttributeKeys).toEqual([])
+    expect(none.isComplete).toBe(true)
+
+    const items = evaluateRoomCompleteness(listTemplate, 'badkamer', { voorzieningen: ['douche'] })
+    expect(items.missingPhotoAttributeKeys).toEqual(['room.voorzieningen'])
+  })
+
+  it('requires photos for present vs always according to the answer', () => {
+    const photoTemplate: InspectionTemplate = {
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'room.verwarmd': {
+          answerScope: 'room',
+          questionKey: 'verwarmd',
+          label: 'Verwarmd?',
+          answerType: 'boolean',
+        },
+        'room.toegankelijkVoorAuto': {
+          answerScope: 'room',
+          questionKey: 'toegankelijkVoorAuto',
+          label: 'Auto?',
+          answerType: 'boolean',
+        },
+      },
+      roomTypes: [
+        {
+          id: 'kamer',
+          label: 'Kamer',
+          allowMultiplePerFloor: true,
+          questions: [
+            { attributeKey: 'room.verwarmd', sortOrder: 1, photoRequired: true },
+            {
+              attributeKey: 'room.toegankelijkVoorAuto',
+              sortOrder: 2,
+              photoRequired: true,
+              photoRequiredWhen: 'always',
+            },
+          ],
+        },
+      ],
+    }
+
+    const presentNo = evaluateRoomCompleteness(
+      photoTemplate,
+      'kamer',
+      {
+        verwarmd: false,
+        toegankelijkVoorAuto: true,
+      },
+      { 'room.toegankelijkVoorAuto': 1 },
+    )
+    expect(presentNo.missingPhotoAttributeKeys).toEqual([])
+    expect(isPhotoRequired(photoTemplate.roomTypes[0]!.questions[0]!, false)).toBe(false)
+    expect(isPhotoRequired(photoTemplate.roomTypes[0]!.questions[0]!, true)).toBe(true)
+
+    const presentYes = evaluateRoomCompleteness(
+      photoTemplate,
+      'kamer',
+      {
+        verwarmd: true,
+        toegankelijkVoorAuto: true,
+      },
+      { 'room.toegankelijkVoorAuto': 1 },
+    )
+    expect(presentYes.missingPhotoAttributeKeys).toEqual(['room.verwarmd'])
+
+    const alwaysNo = evaluateRoomCompleteness(photoTemplate, 'kamer', {
+      verwarmd: false,
+      toegankelijkVoorAuto: false,
+    })
+    expect(alwaysNo.missingPhotoAttributeKeys).toEqual(['room.toegankelijkVoorAuto'])
+    expect(isPhotoRequired(photoTemplate.roomTypes[0]!.questions[1]!, false)).toBe(true)
+
+    const unanswered = evaluateRoomCompleteness(photoTemplate, 'kamer', {})
+    expect(unanswered.missingAttributeKeys).toEqual(['room.verwarmd', 'room.toegankelijkVoorAuto'])
+    expect(unanswered.missingPhotoAttributeKeys).toEqual([])
+    expect(isPhotoRequired(photoTemplate.roomTypes[0]!.questions[1]!, undefined)).toBe(false)
+  })
+
+  it('leaves empty multiChoice unanswered when there is no geen option', () => {
+    const listTemplate: InspectionTemplate = {
+      id: 'demo',
+      version: '0.0.1',
+      label: 'Demo',
+      locale: 'nl-NL',
+      attributes: {
+        'room.kleuren': {
+          answerScope: 'room',
+          questionKey: 'kleuren',
+          label: 'Kleuren?',
+          answerType: 'multiChoice',
+          options: [
+            { value: 'rood', label: 'Rood' },
+            { value: 'blauw', label: 'Blauw' },
+          ],
+        },
+      },
+      roomTypes: [
+        {
+          id: 'kamer',
+          label: 'Kamer',
+          allowMultiplePerFloor: true,
+          questions: [{ attributeKey: 'room.kleuren', sortOrder: 1, photoRequired: false }],
+        },
+      ],
+    }
+
+    const empty = evaluateRoomCompleteness(listTemplate, 'kamer', {})
+    expect(empty.missingAttributeKeys).toEqual(['room.kleuren'])
+    expect(
+      withNoneOfTheseDefault(undefined, listTemplate.attributes['room.kleuren']?.options),
+    ).toBeUndefined()
+  })
+
+  it('fills unanswered geen checklists with the none option', () => {
+    const filled = applyNoneOfTheseDefaults(
+      [
+        {
+          attributeKey: 'room.voorzieningen',
+          answerType: 'multiChoice',
+          options: [
+            { value: 'douche', label: 'Douche' },
+            { value: NONE_OPTION, label: 'Geen van deze' },
+          ],
+        },
+      ],
+      {},
+    )
+    expect(filled).toEqual({ voorzieningen: [NONE_OPTION] })
+    expect(
+      applyNoneOfTheseDefaults(
+        [
+          {
+            attributeKey: 'room.voorzieningen',
+            answerType: 'multiChoice',
+            options: [
+              { value: 'douche', label: 'Douche' },
+              { value: NONE_OPTION, label: 'Geen van deze' },
+            ],
+          },
+        ],
+        { voorzieningen: ['douche'] },
+      ),
+    ).toEqual({ voorzieningen: ['douche'] })
+  })
 })
 
-const booleanAttr = (questionKey: string, label: string) =>
-  ({
-    [`room.${questionKey}`]: {
-      answerScope: 'room' as const,
-      questionKey,
-      label,
-      answerType: 'boolean' as const,
-    },
-  })
+const booleanAttr = (questionKey: string, label: string) => ({
+  [`room.${questionKey}`]: {
+    answerScope: 'room' as const,
+    questionKey,
+    label,
+    answerType: 'boolean' as const,
+  },
+})
 
 const followUps: InspectionTemplate = {
   id: 'bbmi',

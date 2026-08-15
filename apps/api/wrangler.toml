@@ -21,3 +21,7 @@ port = 8787
 binding = "PHOTOS_BUCKET"
 bucket_name = "opnameapp"
 preview_bucket_name = "opnameapp"
+
+# Webhook delivery: */1 drain pending rows, */5 readiness sweep
+[triggers]
+crons = ["*/1 * * * *", "*/5 * * * *"]

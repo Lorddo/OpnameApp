@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import type { OrgRole, OrgType } from '@opnameapp/core'
 import type { Env } from '../env.js'
 import { supabasePublishableKey } from '../env.js'
 import { createServiceClient } from './supabase.js'
@@ -10,7 +11,9 @@ export type AuthContext = {
   kind: AuthKind
   userId?: string
   orgId: string
-  orgRole?: 'inspector' | 'admin'
+  orgRole?: OrgRole
+  orgType?: OrgType
+  tenantId?: string
   accessToken?: string
   apiKeyId?: string
   scopes?: string[]
@@ -105,11 +108,25 @@ export async function authenticateRequest(env: Env, authorizationHeader: string 
     throw new ApiError(401, 'unauthorized', 'JWT missing subject')
   }
 
+  const service = createServiceClient(env)
+  const { data: orgRow } = await service
+    .from('organizations')
+    .select('org_type, tenant_id')
+    .eq('id', orgId)
+    .maybeSingle()
+
+  const orgType: OrgType =
+    orgRow?.org_type === 'client' || orgRow?.org_type === 'platform' || orgRow?.org_type === 'inspection'
+      ? (orgRow.org_type as OrgType)
+      : 'inspection'
+
   return {
     kind: 'user',
     userId,
     orgId,
     orgRole,
+    orgType,
+    tenantId: typeof orgRow?.tenant_id === 'string' ? orgRow.tenant_id : undefined,
     accessToken: token,
   }
 }
@@ -126,7 +143,7 @@ async function authenticateApiKey(env: Env, rawKey: string): Promise<AuthContext
 
   const { data, error } = await service
     .from('api_keys')
-    .select('id, org_id, key_hash, revoked_at, scopes')
+    .select('id, org_id, key_hash, revoked_at, scopes, organizations(org_type, tenant_id)')
     .eq('key_prefix', prefix)
     .maybeSingle()
 
@@ -139,11 +156,23 @@ async function authenticateApiKey(env: Env, rawKey: string): Promise<AuthContext
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', data.id)
 
+  const org = data.organizations as
+    | { org_type?: string; tenant_id?: string }
+    | { org_type?: string; tenant_id?: string }[]
+    | null
+  const orgRow = Array.isArray(org) ? org[0] : org
+  const orgType =
+    orgRow?.org_type === 'client' || orgRow?.org_type === 'platform' || orgRow?.org_type === 'inspection'
+      ? (orgRow.org_type as OrgType)
+      : 'inspection'
+
   return {
     kind: 'api_key',
     orgId: data.org_id as string,
     apiKeyId: data.id as string,
     scopes: Array.isArray(data.scopes) ? (data.scopes as string[]) : [],
+    orgType,
+    tenantId: typeof orgRow?.tenant_id === 'string' ? orgRow.tenant_id : undefined,
   }
 }
 

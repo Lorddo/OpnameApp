@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import type { Env } from './env.js'
 import { ApiError } from './lib/errors.js'
 import type { AuthContext } from './lib/auth.js'
+import { drainDueDeliveries, sweepReadyCompleted } from './lib/webhooks.js'
+import { openApiDocument } from './openapi.js'
 import { healthRoutes } from './routes/health.js'
 import { templatesRoutes } from './routes/templates.js'
 import { propertiesRoutes } from './routes/properties.js'
@@ -11,7 +13,7 @@ import { factsRoutes } from './routes/facts.js'
 import { photosRoutes } from './routes/photos.js'
 import { exportsRoutes } from './routes/exports.js'
 import { meRoutes } from './routes/me.js'
-import { adminRoutes } from './routes/admin.js'
+import { adminRoutes } from './routes/admin/index.js'
 import { assignmentsRoutes } from './routes/assignments.js'
 import { syncRoutes } from './routes/sync.js'
 
@@ -132,66 +134,49 @@ export function createApp() {
   return app
 }
 
-function openApiDocument() {
-  return {
-    openapi: '3.0.3',
-    info: {
-      title: 'OpnameApp API',
-      version: '0.1.0',
-      description: 'Vastgoed Opname Platform API (fase 1 online-first)',
-    },
-    servers: [{ url: '/api' }],
-    components: {
-      securitySchemes: {
-        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        apiKeyAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          description: 'Dashboard API key (opk_...)',
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
-    paths: {
-      '/health': { get: { security: [], summary: 'Health check' } },
-      '/me': { get: { summary: 'Current auth context' } },
-      '/templates': { get: { summary: 'List templates' } },
-      '/templates/{key}/{version}': { get: { summary: 'Get template config' } },
-      '/properties': {
-        get: { summary: 'List properties' },
-        post: { summary: 'Create property' },
-      },
-      '/properties/{id}': { get: { summary: 'Property with structure' } },
-      '/inspections': {
-        get: { summary: 'List inspections' },
-        post: { summary: 'Create inspection with template pins' },
-      },
-      '/observations/batch': { post: { summary: 'Batch upsert observations' } },
-      '/facts': { get: { summary: 'List facts for property' } },
-      '/photos': { get: { summary: 'List photos for a property' } },
-      '/photos/upload-url': { post: { summary: 'Create photo metadata + upload target' } },
-      '/photos/{id}/content': {
-        put: { summary: 'Upload photo bytes to R2' },
-        get: { summary: 'Download photo bytes from R2' },
-      },
-      '/exports/properties/{id}/dossier': { get: { summary: 'JSON dossier export' } },
-      '/sync/pull': {
-        get: { summary: 'Incremental pull (templates, properties, inspections) with cursors' },
-      },
-      '/assignments': { post: { summary: 'Assign property to inspection org' } },
-      '/admin/provision-inspector': {
-        post: {
-          summary: 'Provision org (optional) + invite/link user + app_metadata + org_members',
-        },
-      },
-      '/admin/assign-inspection': {
-        post: {
-          summary: 'Create property + inspection (+ pins) for dashboard dispatch',
-        },
-      },
-    },
-  }
-}
-
 const app = createApp()
-export default app
+
+const CRON_DRAIN = '*/1 * * * *'
+const CRON_SWEEP = '*/5 * * * *'
+
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    if (event.cron === CRON_SWEEP) {
+      ctx.waitUntil(
+        sweepReadyCompleted(env)
+          .then((n) =>
+            console.log(JSON.stringify({ level: 'info', msg: 'webhook_sweep', enqueued: n })),
+          )
+          .catch((err) =>
+            console.error(
+              JSON.stringify({
+                level: 'error',
+                msg: 'webhook_sweep_failed',
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            ),
+          ),
+      )
+      return
+    }
+
+    if (event.cron === CRON_DRAIN || !event.cron) {
+      ctx.waitUntil(
+        drainDueDeliveries(env)
+          .then((n) =>
+            console.log(JSON.stringify({ level: 'info', msg: 'webhook_drain', delivered: n })),
+          )
+          .catch((err) =>
+            console.error(
+              JSON.stringify({
+                level: 'error',
+                msg: 'webhook_drain_failed',
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            ),
+          ),
+      )
+    }
+  },
+}

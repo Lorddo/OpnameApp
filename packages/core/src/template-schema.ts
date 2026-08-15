@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const AnswerScopeSchema = z.enum(['room', 'floor', 'property', 'asset'])
 export type AnswerScope = z.infer<typeof AnswerScopeSchema>
 
-export const AnswerTypeSchema = z.enum(['boolean', 'choice', 'text', 'number'])
+export const AnswerTypeSchema = z.enum(['boolean', 'choice', 'multiChoice', 'text', 'number'])
 export type AnswerType = z.infer<typeof AnswerTypeSchema>
 
 export const ChoiceOptionSchema = z.object({
@@ -27,17 +27,24 @@ export const AttributeDefinitionSchema = z
     step: z.number().positive().optional(),
   })
   .superRefine((attr, ctx) => {
-    if (attr.answerType === 'choice' && (!attr.options || attr.options.length === 0)) {
+    if (
+      (attr.answerType === 'choice' || attr.answerType === 'multiChoice') &&
+      (!attr.options || attr.options.length === 0)
+    ) {
       ctx.addIssue({
         code: 'custom',
-        message: 'choice attributes require non-empty options',
+        message: `${attr.answerType} attributes require non-empty options`,
         path: ['options'],
       })
     }
-    if (attr.answerType !== 'choice' && attr.options !== undefined) {
+    if (
+      attr.answerType !== 'choice' &&
+      attr.answerType !== 'multiChoice' &&
+      attr.options !== undefined
+    ) {
       ctx.addIssue({
         code: 'custom',
-        message: 'options are only allowed for choice attributes',
+        message: 'options are only allowed for choice and multiChoice attributes',
         path: ['options'],
       })
     }
@@ -55,10 +62,15 @@ export const AttributeDefinitionSchema = z
   })
 export type AttributeDefinition = z.infer<typeof AttributeDefinitionSchema>
 
+export const PhotoRequiredWhenSchema = z.enum(['present', 'always'])
+export type PhotoRequiredWhen = z.infer<typeof PhotoRequiredWhenSchema>
+
 export const QuestionBindingSchema = z.object({
   attributeKey: z.string().min(1),
   sortOrder: z.number().int(),
   photoRequired: z.boolean().default(false),
+  /** Defaults to `present` when omitted (see isPhotoRequired). */
+  photoRequiredWhen: PhotoRequiredWhenSchema.optional(),
   showWhen: z.string().optional(),
   helpTextOverride: z.string().optional(),
 })

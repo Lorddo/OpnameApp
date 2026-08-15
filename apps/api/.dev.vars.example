@@ -21,3 +21,8 @@ CORS_ORIGIN=http://127.0.0.1:5173
 
 # Invite / recovery redirect — must be allowlisted in Supabase Auth → URL Configuration
 INVITE_REDIRECT_URL=http://localhost:5173/auth/callback
+
+# Outbound webhooks (empty URL = disabled)
+# WEBHOOK_URL=https://dashboard.example/hooks/opname
+# WEBHOOK_SECRET=replace-with-shared-hmac-secret
+# PUBLIC_API_BASE_URL=https://opnameapp-api.<account>.workers.dev

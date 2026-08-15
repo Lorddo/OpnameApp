@@ -1,5 +1,9 @@
 import type { InspectionTemplate, QuestionBinding, RoomType } from './template-schema.js'
-import { evaluateRoomCompleteness, listVisibleQuestions, type RoomCompleteness } from './completeness.js'
+import {
+  evaluateRoomCompleteness,
+  listVisibleQuestions,
+  type RoomCompleteness,
+} from './completeness.js'
 import { isQuestionVisible, type RoomAnswers } from './show-when.js'
 
 export interface MergeConflict {
@@ -76,6 +80,9 @@ export function mergeTemplates(templates: InspectionTemplate[]): MergedInspectio
 
         found.sourceTemplateKeys.push(template.id)
         found.photoRequired = found.photoRequired || question.photoRequired
+        if (found.photoRequiredWhen === 'always' || question.photoRequiredWhen === 'always') {
+          found.photoRequiredWhen = 'always'
+        }
 
         // Visibility: keep all showWhen expressions; evaluator ORs them later.
         if (question.showWhen) {
@@ -115,7 +122,10 @@ export function mergeTemplates(templates: InspectionTemplate[]): MergedInspectio
             ],
           })
           // Keep first helpTextOverride until product rule is decided.
-        } else if (question.helpTextOverride !== undefined && found.helpTextOverride === undefined) {
+        } else if (
+          question.helpTextOverride !== undefined &&
+          found.helpTextOverride === undefined
+        ) {
           found.helpTextOverride = question.helpTextOverride
         }
       }
@@ -188,6 +198,30 @@ function asSyntheticTemplate(merged: MergedInspectionView, roomTypeId: string): 
       },
     ],
   }
+}
+
+export function exclusiveAttributeKeysForTemplate(
+  merged: Pick<MergedInspectionView, 'roomTypes'>,
+  templateKey: string,
+): string[] {
+  const keys = new Set<string>()
+  for (const rt of merged.roomTypes) {
+    for (const q of rt.questions) {
+      if (q.sourceTemplateKeys.length === 1 && q.sourceTemplateKeys[0] === templateKey) {
+        keys.add(q.attributeKey)
+      }
+    }
+  }
+  return [...keys]
+}
+
+export function exclusiveRoomTypeIdsForTemplate(
+  merged: Pick<MergedInspectionView, 'roomTypes'>,
+  templateKey: string,
+): string[] {
+  return merged.roomTypes
+    .filter((rt) => rt.labelSources.length === 1 && rt.labelSources[0]?.templateKey === templateKey)
+    .map((rt) => rt.id)
 }
 
 export function listMergedVisibleQuestions(

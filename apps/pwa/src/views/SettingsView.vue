@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { applyTheme, type ThemeId } from '@/lib/theme'
+import { validateNewPassword } from '@/lib/password'
+import { inputClass } from '@/lib/ui'
 import { useAuthStore } from '@/stores/auth'
+import { usePwaInstallStore } from '@/stores/pwa-install'
 
 const { t, locale } = useI18n()
 const auth = useAuthStore()
+const install = usePwaInstallStore()
+const { installed, canPrompt, showIosHint, showManualHint, prompting } = storeToRefs(install)
 
 const password = ref('')
 const confirm = ref('')
@@ -26,11 +32,12 @@ function setTheme(theme: ThemeId) {
 async function onChangePassword() {
   message.value = null
   error.value = null
-  if (password.value.length < 8) {
+  const invalid = validateNewPassword(password.value, confirm.value)
+  if (invalid === 'tooShort') {
     error.value = t('auth.passwordTooShort')
     return
   }
-  if (password.value !== confirm.value) {
+  if (invalid === 'mismatch') {
     error.value = t('auth.passwordMismatch')
     return
   }
@@ -82,6 +89,28 @@ async function onChangePassword() {
       </div>
     </div>
 
+    <div class="rounded-xl border border-border bg-card p-5">
+      <p class="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        {{ t('settings.install') }}
+      </p>
+      <p v-if="!installed" class="mb-4 text-sm text-muted-foreground">
+        {{ t('pwa.installDescription') }}
+      </p>
+      <p v-if="installed" class="text-sm font-medium text-success">{{ t('pwa.installed') }}</p>
+      <div v-else class="space-y-3">
+        <p v-if="showIosHint" class="text-sm">{{ t('pwa.installIos') }}</p>
+        <p v-else-if="showManualHint" class="text-sm">{{ t('pwa.installManual') }}</p>
+        <Button
+          v-if="canPrompt"
+          variant="brand"
+          :disabled="prompting"
+          @click="install.promptInstall()"
+        >
+          {{ prompting ? t('pwa.installing') : t('pwa.installAction') }}
+        </Button>
+      </div>
+    </div>
+
     <form
       class="max-w-lg space-y-4 rounded-xl border border-border bg-card p-5"
       @submit.prevent="onChangePassword"
@@ -97,7 +126,7 @@ async function onChangePassword() {
           required
           minlength="8"
           autocomplete="new-password"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4"
+          :class="inputClass"
         />
       </label>
       <label class="block space-y-2">
@@ -108,7 +137,7 @@ async function onChangePassword() {
           required
           minlength="8"
           autocomplete="new-password"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4"
+          :class="inputClass"
         />
       </label>
       <p v-if="error" class="text-sm text-destructive">{{ error }}</p>

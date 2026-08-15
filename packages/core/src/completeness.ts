@@ -1,4 +1,5 @@
 import type { InspectionTemplate, QuestionBinding, RoomType } from './template-schema.js'
+import { attributeQuestionKey } from './attribute-key.js'
 import { isQuestionVisible, type RoomAnswers } from './show-when.js'
 
 export interface VisibleQuestion extends QuestionBinding {
@@ -53,10 +54,71 @@ export function listVisibleQuestions(
   return visible.sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
+/** Exclusive "none of these" option used by WWS multiChoice checklists. */
+export const NONE_OPTION = 'geen'
+
 function isAnswered(value: unknown): boolean {
   if (value === null || value === undefined) return false
   if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
   return true
+}
+
+export function hasNoneOfTheseOption(
+  options?: Array<{ value: string; label?: string }> | null,
+): boolean {
+  return Boolean(options?.some((opt) => opt.value === NONE_OPTION))
+}
+
+/** Empty checklists with a `geen` option default to "none of these". */
+export function withNoneOfTheseDefault(
+  value: unknown,
+  options?: Array<{ value: string; label?: string }> | null,
+): unknown {
+  if (!hasNoneOfTheseOption(options)) return value
+  if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) {
+    return [NONE_OPTION]
+  }
+  return value
+}
+
+export function applyNoneOfTheseDefaults(
+  questions: Array<{
+    attributeKey: string
+    answerType: string
+    options?: Array<{ value: string; label?: string }>
+  }>,
+  answers: RoomAnswers,
+): RoomAnswers {
+  let changed = false
+  const next: RoomAnswers = { ...answers }
+  for (const question of questions) {
+    if (question.answerType !== 'multiChoice' || !hasNoneOfTheseOption(question.options)) continue
+    const questionKey = attributeQuestionKey(question.attributeKey)
+    const effective = withNoneOfTheseDefault(next[questionKey], question.options)
+    if (effective !== next[questionKey]) {
+      next[questionKey] = effective
+      changed = true
+    }
+  }
+  return changed ? next : answers
+}
+
+/** `geen` means none of the list items apply — no evidence photo needed. */
+function skipsRequiredPhoto(value: unknown): boolean {
+  if (value === NONE_OPTION) return true
+  return Array.isArray(value) && value.length === 1 && value[0] === NONE_OPTION
+}
+
+export function isPhotoRequired(
+  question: Pick<QuestionBinding, 'photoRequired' | 'photoRequiredWhen'>,
+  value: unknown,
+): boolean {
+  if (!question.photoRequired) return false
+  if (!isAnswered(value)) return false
+  if ((question.photoRequiredWhen ?? 'present') === 'always') return true
+  if (value === false) return false
+  return !skipsRequiredPhoto(value)
 }
 
 export function evaluateRoomCompleteness(
@@ -87,14 +149,17 @@ export function evaluateRoomCompleteness(
   let answeredCount = 0
 
   for (const question of visible) {
-    const questionKey = question.attributeKey.split('.')[1] ?? question.attributeKey
-    const value = answers[questionKey]
+    const questionKey = attributeQuestionKey(question.attributeKey)
+    const value = withNoneOfTheseDefault(answers[questionKey], question.options)
     if (!isAnswered(value)) {
       missingAttributeKeys.push(question.attributeKey)
     } else {
       answeredCount += 1
     }
-    if (question.photoRequired && (photosByAttributeKey[question.attributeKey] ?? 0) < 1) {
+    if (
+      isPhotoRequired(question, value) &&
+      (photosByAttributeKey[question.attributeKey] ?? 0) < 1
+    ) {
       missingPhotoAttributeKeys.push(question.attributeKey)
     }
   }
@@ -160,13 +225,10 @@ export function evaluateTemplateCompleteness(
  * Clear answers that are no longer visible under the current showWhen rules.
  * Returns a new answers object (does not mutate input).
  */
-export function clearHiddenAnswers(
-  roomType: RoomType,
-  answers: RoomAnswers,
-): RoomAnswers {
+export function clearHiddenAnswers(roomType: RoomType, answers: RoomAnswers): RoomAnswers {
   const next: RoomAnswers = { ...answers }
   for (const question of roomType.questions) {
-    const questionKey = question.attributeKey.split('.')[1] ?? question.attributeKey
+    const questionKey = attributeQuestionKey(question.attributeKey)
     if (!isQuestionVisible(question.showWhen, { roomAnswers: answers })) {
       delete next[questionKey]
     }

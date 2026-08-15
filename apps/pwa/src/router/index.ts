@@ -7,6 +7,7 @@ import InspectionFlowView from '@/views/InspectionFlowView.vue'
 import DossierView from '@/views/DossierView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import SetPasswordView from '@/views/SetPasswordView.vue'
+import AdminView from '@/views/AdminView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 export const router = createRouter({
@@ -59,6 +60,12 @@ export const router = createRouter({
           name: 'settings',
           component: SettingsView,
         },
+        {
+          path: 'admin',
+          name: 'admin',
+          component: AdminView,
+          meta: { platformAdmin: true },
+        },
       ],
     },
   ],
@@ -72,5 +79,9 @@ router.beforeEach(async (to) => {
     return true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  if (to.meta.platformAdmin) {
+    if (!auth.profileReady) await auth.refreshProfile()
+    if (!auth.isPlatformAdmin) return { name: 'projects' }
+  }
   return true
 })

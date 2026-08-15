@@ -2,8 +2,16 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../index.js'
 import { requireAuth } from '../middleware/auth.js'
-import { assertPropertyAccess, dbForAuth } from '../lib/db.js'
+import {
+  assertPhotoReadAccess,
+  assertPropertyAccess,
+  assertPwaWrite,
+  dbForAuth,
+} from '../lib/db.js'
 import { ApiError } from '../lib/errors.js'
+import { throwIfDbError, requireRow } from '../lib/db-result.js'
+import { applyPhotoOwnerScope } from '../lib/scope.js'
+import { scheduleWebhookEnqueue } from '../lib/webhook-schedule.js'
 
 export const photosRoutes = new Hono<AppEnv>()
 photosRoutes.use('*', requireAuth)
@@ -30,21 +38,23 @@ photosRoutes.get('/', async (c) => {
   let query = db
     .from('photos')
     .select(
-      'id, property_id, observation_id, subject_type, subject_id, storage_provider, storage_key, checksum, source_inspection_id, created_at',
+      'id, property_id, observation_id, subject_type, subject_id, storage_provider, storage_key, checksum, source_inspection_id, uploaded_at, created_at, owner_org_id',
     )
     .eq('property_id', propertyId)
-    .eq('owner_org_id', auth.orgId)
     .order('created_at', { ascending: true })
+
+  query = applyPhotoOwnerScope(query, auth)
 
   if (inspectionId) query = query.eq('source_inspection_id', inspectionId)
 
   const { data, error } = await query
-  if (error) throw new ApiError(500, 'db_error', error.message)
+  throwIfDbError(error)
   return c.json({ photos: data ?? [] })
 })
 
 photosRoutes.post('/upload-url', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const body = createPhotoSchema.parse(await c.req.json())
   await assertPropertyAccess(db, auth, body.propertyId)
@@ -68,10 +78,8 @@ photosRoutes.post('/upload-url', async (c) => {
     .select('*')
     .single()
 
-  if (error) throw new ApiError(400, 'db_error', error.message)
+  throwIfDbError(error, 400)
 
-  // R2 binding supports createMultipartUpload; for MVP use a Worker-mediated PUT via temporary token
-  // or signed URL from S3 API. Here we return a same-origin upload endpoint for the worker.
   return c.json({
     photo: data,
     upload: {
@@ -86,12 +94,13 @@ photosRoutes.post('/upload-url', async (c) => {
 
 photosRoutes.put('/:id/content', async (c) => {
   const auth = c.get('auth')!
+  assertPwaWrite(auth)
   const db = dbForAuth(c.env, auth)
   const id = c.req.param('id')
 
   const { data: photo, error } = await db.from('photos').select('*').eq('id', id).maybeSingle()
-  if (error) throw new ApiError(500, 'db_error', error.message)
-  if (!photo) throw new ApiError(404, 'not_found', 'Photo not found')
+  throwIfDbError(error)
+  requireRow(photo, 'Photo not found')
   if (photo.owner_org_id !== auth.orgId) throw new ApiError(403, 'forbidden', 'Outside organization scope')
 
   const bytes = await c.req.arrayBuffer()
@@ -101,7 +110,15 @@ photosRoutes.put('/:id/content', async (c) => {
     },
   })
 
-  return c.json({ ok: true, storageKey: photo.storage_key })
+  const uploadedAt = new Date().toISOString()
+  await db.from('photos').update({ uploaded_at: uploadedAt }).eq('id', id)
+
+  const sourceInspectionId = photo.source_inspection_id as string | null
+  if (sourceInspectionId) {
+    scheduleWebhookEnqueue(c, sourceInspectionId, 'webhook_enqueue_after_photo')
+  }
+
+  return c.json({ ok: true, storageKey: photo.storage_key, uploadedAt })
 })
 
 photosRoutes.get('/:id/content', async (c) => {
@@ -110,9 +127,13 @@ photosRoutes.get('/:id/content', async (c) => {
   const id = c.req.param('id')
 
   const { data: photo, error } = await db.from('photos').select('*').eq('id', id).maybeSingle()
-  if (error) throw new ApiError(500, 'db_error', error.message)
-  if (!photo) throw new ApiError(404, 'not_found', 'Photo not found')
-  if (photo.owner_org_id !== auth.orgId) throw new ApiError(403, 'forbidden', 'Outside organization scope')
+  throwIfDbError(error)
+  requireRow(photo, 'Photo not found')
+  await assertPhotoReadAccess(db, auth, {
+    owner_org_id: photo.owner_org_id as string,
+    property_id: photo.property_id as string,
+    source_inspection_id: (photo.source_inspection_id as string | null) ?? null,
+  })
 
   const object = await c.env.PHOTOS_BUCKET.get(photo.storage_key)
   if (!object) throw new ApiError(404, 'not_found', 'Photo content not found')

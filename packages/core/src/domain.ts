@@ -13,7 +13,7 @@ export type InspectionStatus =
   | 'completed'
   | 'synced'
 
-export type Visibility = 'private' | 'public_to_client'
+export type Visibility = 'private' | 'shared' | 'public_to_client'
 
 export type SubjectType = 'property' | 'floor' | 'room' | 'asset' | 'observation'
 

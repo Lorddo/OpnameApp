@@ -2,6 +2,8 @@
  * Local IndexedDB entity shapes (camelCase). Server payloads stay snake_case at the API boundary.
  */
 
+import type { Visibility } from '@opnameapp/core'
+
 export type SyncStatus = 'draft' | 'pending' | 'synced' | 'error'
 
 export type LocalProperty = {
@@ -55,7 +57,7 @@ export type LocalObservation = {
   subjectType: 'property' | 'floor' | 'room' | 'asset'
   subjectId: string
   value: unknown
-  visibility: 'private' | 'shared' | 'public_to_client'
+  visibility: Visibility
   deviceId: string
   updatedAt: string
   syncStatus: SyncStatus

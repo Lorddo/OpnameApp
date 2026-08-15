@@ -10,8 +10,6 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -60,8 +58,6 @@
   --foreground: #1a1c1e;
   --card: #ffffff;
   --card-foreground: #1a1c1e;
-  --popover: #ffffff;
-  --popover-foreground: #1a1c1e;
   --muted: #eceef0;
   --muted-foreground: #5b646c;
   --border: #d7dce0;
@@ -91,16 +87,14 @@
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
   --muted: #e2e8f0;
   --muted-foreground: #475569;
   --border: #cbd5e1;
   --input: #cbd5e1;
   --ring: #0f766e;
   --radius: 0.5rem;
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', sans-serif;
-  --font-display: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-display: 'Source Sans 3', 'Segoe UI', sans-serif;
 }
 
 @layer base {
@@ -124,5 +118,23 @@
   h2,
   h3 {
     @apply font-display tracking-tight;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body,
+  #app {
+    height: auto;
+    background: #fff;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }

@@ -5,6 +5,8 @@ import { useI18n } from 'vue-i18n'
 import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth'
+import { validateNewPassword } from '@/lib/password'
+import { inputClass } from '@/lib/ui'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -21,11 +23,12 @@ const isFirstSetup = route.query.reason === 'invite' || route.query.reason === '
 
 async function onSubmit() {
   localError.value = null
-  if (password.value.length < 8) {
+  const invalid = validateNewPassword(password.value, confirm.value)
+  if (invalid === 'tooShort') {
     localError.value = t('auth.passwordTooShort')
     return
   }
-  if (password.value !== confirm.value) {
+  if (invalid === 'mismatch') {
     localError.value = t('auth.passwordMismatch')
     return
   }
@@ -62,7 +65,7 @@ async function onSubmit() {
           required
           minlength="8"
           autocomplete="new-password"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4 text-base"
+          :class="inputClass"
         />
       </label>
       <label class="block space-y-2">
@@ -73,7 +76,7 @@ async function onSubmit() {
           required
           minlength="8"
           autocomplete="new-password"
-          class="min-h-12 w-full rounded-lg border border-input bg-background px-4 text-base"
+          :class="inputClass"
         />
       </label>
       <p v-if="localError" class="text-sm text-destructive">{{ localError }}</p>
