@@ -511,6 +511,36 @@ export async function savePhotoLocal(input: {
   return row
 }
 
+export async function removePhotoLocal(propertyId: string, photoId: string) {
+  const now = nowIso()
+  await db.transaction('rw', db.photos, db.photoBlobs, db.outbox, async () => {
+    await db.photos.delete(photoId)
+    await db.photoBlobs.delete(photoId)
+    const pendingUploads = (await db.outbox.toArray()).filter(
+      (row) =>
+        row.entityId === photoId && (row.op === 'photo.meta' || row.op === 'photo.content'),
+    )
+    if (pendingUploads.length) {
+      await db.outbox.bulkDelete(pendingUploads.map((row) => row.id))
+    }
+    await db.outbox.put(
+      cloneForIdb({
+        id: newId(),
+        op: 'photo.delete' as const,
+        entityId: photoId,
+        payload: { id: photoId, propertyId },
+        dependsOn: [],
+        createdAt: now,
+        attempts: 0,
+        nextAttemptAt: now,
+        lastError: null,
+      }),
+    )
+  })
+  emitSyncChange()
+  void flushOutbox()
+}
+
 export async function getLocalInspectionBundle(inspectionId: string) {
   const inspection = await db.inspections.get(inspectionId)
   if (!inspection) return null
@@ -588,7 +618,7 @@ export async function purgePropertyLocal(propertyId: string) {
     ...inspections.map((i) => i.id),
     ...observations.map((o) => o.id),
   ])
-  // Drop structure/queue ops only — never photo.meta / photo.content outbox or blobs.
+  // Drop structure/queue ops only — never photo outbox or blobs.
   const outboxIds = outbox
     .filter((row) => entityIds.has(row.entityId) && !row.op.startsWith('photo.'))
     .map((row) => row.id)

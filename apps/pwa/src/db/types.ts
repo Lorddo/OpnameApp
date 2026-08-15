@@ -120,6 +120,7 @@ export type OutboxOp =
   | 'observations.batch'
   | 'photo.meta'
   | 'photo.content'
+  | 'photo.delete'
 
 export type OutboxItem = {
   id: string

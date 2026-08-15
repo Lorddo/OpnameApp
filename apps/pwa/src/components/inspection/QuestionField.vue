@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import { Info } from 'lucide-vue-next'
+import { Info, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import FlowDialog from '@/components/inspection/FlowDialog.vue'
 import {
   NONE_OPTION,
   attributeQuestionKey,
@@ -30,6 +31,14 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const flow = useInspectionFlowStore()
 const { saving, uploadingPhotoKey } = storeToRefs(flow)
+const selectedPhotoId = ref<string | null>(null)
+const pendingDeletePhotoId = ref<string | null>(null)
+const deleteDialogOpen = computed({
+  get: () => pendingDeletePhotoId.value != null,
+  set: (open) => {
+    if (!open) pendingDeletePhotoId.value = null
+  },
+})
 
 const qKey = computed(() => attributeQuestionKey(props.question.attributeKey))
 const subjectKey = computed(() => subjectAnswerKey(props.subjectType, props.subjectId))
@@ -96,6 +105,22 @@ async function onPhotoSelected(event: Event) {
   input.value = ''
   if (!file) return
   await flow.uploadPhoto(props.subjectType, props.subjectId, props.question.attributeKey, file)
+}
+
+function onPhotoTap(photoId: string) {
+  selectedPhotoId.value = selectedPhotoId.value === photoId ? null : photoId
+}
+
+function onDeletePhotoClick(photoId: string) {
+  pendingDeletePhotoId.value = photoId
+}
+
+async function confirmDeletePhoto() {
+  const id = pendingDeletePhotoId.value
+  pendingDeletePhotoId.value = null
+  if (!id) return
+  if (selectedPhotoId.value === id) selectedPhotoId.value = null
+  await flow.removePhoto(id)
 }
 
 function onHelpClick() {
@@ -210,15 +235,42 @@ function onHelpClick() {
       </div>
       <div
         v-if="flow.photosForQuestion(subjectType, subjectId, question.attributeKey).length"
-        class="flex flex-wrap gap-2"
+        class="flex flex-wrap gap-3"
       >
-        <img
+        <div
           v-for="photo in flow.photosForQuestion(subjectType, subjectId, question.attributeKey)"
           :key="photo.id"
-          :src="photo.previewUrl ?? undefined"
-          :alt="t('flow.photoAlt')"
-          class="h-20 w-20 rounded-lg border border-border object-cover"
-        />
+          class="relative"
+        >
+          <button
+            type="button"
+            class="h-20 w-20 overflow-hidden rounded-lg border border-border"
+            :class="
+              selectedPhotoId === photo.id
+                ? 'ring-2 ring-brand ring-offset-2 ring-offset-background'
+                : ''
+            "
+            :aria-label="t('flow.selectPhoto')"
+            :aria-pressed="selectedPhotoId === photo.id"
+            @click="onPhotoTap(photo.id)"
+          >
+            <img
+              :src="photo.previewUrl ?? undefined"
+              :alt="t('flow.photoAlt')"
+              class="h-full w-full object-cover"
+            />
+          </button>
+          <button
+            v-if="selectedPhotoId === photo.id"
+            type="button"
+            class="absolute -right-2 -top-2 inline-flex size-11 items-center justify-center rounded-full border-2 border-card bg-destructive text-destructive-foreground shadow-md"
+            :aria-label="t('flow.deletePhoto')"
+            :disabled="saving"
+            @click="onDeletePhotoClick(photo.id)"
+          >
+            <Trash2 class="size-5" aria-hidden="true" />
+          </button>
+        </div>
       </div>
       <div class="flex flex-wrap gap-2">
         <label v-if="canUseCamera" class="inline-flex">
@@ -254,5 +306,22 @@ function onHelpClick() {
         </label>
       </div>
     </div>
+
+    <FlowDialog v-model:open="deleteDialogOpen" labelled-by="delete-photo-title" :show-close="false">
+      <h2 id="delete-photo-title" class="text-lg font-semibold">
+        {{ t('flow.deletePhotoTitle') }}
+      </h2>
+      <p class="mt-3 text-sm text-muted-foreground">
+        {{ t('flow.deletePhotoBody') }}
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <Button variant="outline" @click="deleteDialogOpen = false">
+          {{ t('flow.deletePhotoCancel') }}
+        </Button>
+        <Button variant="destructive" :disabled="saving" @click="confirmDeletePhoto">
+          {{ t('flow.deletePhotoConfirm') }}
+        </Button>
+      </div>
+    </FlowDialog>
   </div>
 </template>

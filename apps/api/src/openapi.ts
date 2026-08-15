@@ -51,6 +51,7 @@ export function openApiDocument() {
       '/facts': { get: { summary: 'List facts for property' } },
       '/photos': { get: { summary: 'List photos for a property' } },
       '/photos/upload-url': { post: { summary: 'Create photo metadata + upload target' } },
+      '/photos/{id}': { delete: { summary: 'Delete photo metadata and R2 object' } },
       '/photos/{id}/content': {
         put: { summary: 'Upload photo bytes to R2' },
         get: { summary: 'Download photo bytes from R2' },

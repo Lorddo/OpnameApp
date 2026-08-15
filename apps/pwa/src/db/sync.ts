@@ -243,6 +243,7 @@ async function processItem(item: OutboxItem): Promise<void> {
         checksum: string | null
         sourceInspectionId: string | null
       }
+      if (!(await db.photos.get(p.id))) return
       await apiFetch('/api/photos/upload-url', {
         method: 'POST',
         body: JSON.stringify(p),
@@ -252,15 +253,30 @@ async function processItem(item: OutboxItem): Promise<void> {
     }
     case 'photo.content': {
       const p = item.payload as { id: string; contentType: string }
+      if (!(await db.photos.get(p.id))) return
       const blobRow = await db.photoBlobs.get(p.id)
       if (!blobRow) throw new Error('Local photo blob missing')
-      await apiUpload(`/api/photos/${p.id}/content`, blobRow.blob, p.contentType, 'PUT')
+      try {
+        await apiUpload(`/api/photos/${p.id}/content`, blobRow.blob, p.contentType, 'PUT')
+      } catch (err) {
+        if (isNotFoundError(err)) return
+        throw err
+      }
       // Keep local blob after sync (ADR-018); free space via purgePropertyLocal.
       await db.photos.update(p.id, {
         syncStatus: 'synced',
         uploadStatus: 'uploaded',
         hasLocalBlob: true,
       })
+      return
+    }
+    case 'photo.delete': {
+      const p = item.payload as { id: string }
+      try {
+        await apiFetch(`/api/photos/${p.id}`, { method: 'DELETE' })
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err
+      }
       return
     }
     default: {

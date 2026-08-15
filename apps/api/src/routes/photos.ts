@@ -146,3 +146,33 @@ photosRoutes.get('/:id/content', async (c) => {
     },
   })
 })
+
+photosRoutes.delete('/:id', async (c) => {
+  const auth = c.get('auth')!
+  assertPwaWrite(auth)
+  const db = dbForAuth(c.env, auth)
+  const id = c.req.param('id')
+
+  const { data: photo, error } = await db.from('photos').select('*').eq('id', id).maybeSingle()
+  throwIfDbError(error)
+  requireRow(photo, 'Photo not found')
+  if (photo.owner_org_id !== auth.orgId) {
+    throw new ApiError(403, 'forbidden', 'Outside organization scope')
+  }
+  await assertPropertyAccess(db, auth, photo.property_id as string)
+
+  const storageKey = photo.storage_key as string | null
+  if (storageKey) {
+    await c.env.PHOTOS_BUCKET.delete(storageKey)
+  }
+
+  const { error: deleteError } = await db.from('photos').delete().eq('id', id)
+  throwIfDbError(deleteError, 400)
+
+  const sourceInspectionId = photo.source_inspection_id as string | null
+  if (sourceInspectionId) {
+    scheduleWebhookEnqueue(c, sourceInspectionId, 'webhook_enqueue_after_photo_delete')
+  }
+
+  return c.json({ ok: true })
+})

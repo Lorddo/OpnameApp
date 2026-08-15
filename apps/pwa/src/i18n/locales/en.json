@@ -132,6 +132,12 @@
     "choosePhoto": "Choose from gallery",
     "photoUploading": "Uploading…",
     "photoAlt": "Evidence photo",
+    "selectPhoto": "Select photo",
+    "deletePhoto": "Delete photo",
+    "deletePhotoTitle": "Delete this photo?",
+    "deletePhotoBody": "This photo will be permanently deleted. This cannot be undone.",
+    "deletePhotoConfirm": "Delete",
+    "deletePhotoCancel": "Cancel",
     "completed": "Inspection completed and ready to sync.",
     "downloadDossier": "Download dossier JSON"
   },

@@ -18,6 +18,7 @@ import {
   getLocalInspectionBundle,
   removeAssetLocal,
   removeFloorLocal,
+  removePhotoLocal,
   removeRoomLocal,
   reopenInspectionLocal,
   saveObservationsLocal,
@@ -1261,6 +1262,21 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     }
   }
 
+  async function removePhoto(photoId: string) {
+    if (!propertyId.value) return
+    const photo = photos.value.find((p) => p.id === photoId)
+    if (!photo) return
+    if (photo.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl)
+    photos.value = photos.value.filter((p) => p.id !== photoId)
+    error.value = null
+    try {
+      await removePhotoLocal(propertyId.value, photoId)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : String(err)
+      throw err
+    }
+  }
+
   async function saveAllAnswers() {
     if (!propertyId.value || !inspectionId.value) return
     saving.value = true
@@ -1483,6 +1499,7 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     setAnswer,
     saveAllAnswers,
     uploadPhoto,
+    removePhoto,
     enterChecklist,
     enterFloors,
     completeInspection,

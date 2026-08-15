@@ -132,6 +132,12 @@
     "choosePhoto": "Kiezen uit galerij",
     "photoUploading": "Uploaden…",
     "photoAlt": "Bewijsfoto",
+    "selectPhoto": "Foto selecteren",
+    "deletePhoto": "Foto verwijderen",
+    "deletePhotoTitle": "Foto verwijderen?",
+    "deletePhotoBody": "Deze foto wordt definitief verwijderd. Dat kan niet ongedaan worden gemaakt.",
+    "deletePhotoConfirm": "Verwijderen",
+    "deletePhotoCancel": "Annuleren",
     "completed": "Opname afgerond en klaar voor synchronisatie.",
     "downloadDossier": "Dossier JSON downloaden"
   },
