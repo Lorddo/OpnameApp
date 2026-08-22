@@ -118,7 +118,6 @@ export type PaletteAssetType = {
 export type BuildCreatePaletteInput = {
   isPropertyTab: boolean
   roomTypes: PaletteRoomType[]
-  /** Floor assets already filtered (e.g. dak/vloer by boven/onder). */
   floorAssetTypes: PaletteAssetType[]
   propertyAssetTypes: PaletteAssetType[]
   roomsOnFloor: Array<{ roomType: string }>

@@ -135,13 +135,14 @@ describe('buildCreatePalette', () => {
     expect(groups).toEqual([])
   })
 
-  it('uses already-filtered floorAssetTypes (dak/vloer filter is caller responsibility)', () => {
+  it('always includes dak and vloer when they are in floorAssetTypes', () => {
     const groups = buildCreatePalette({
       isPropertyTab: false,
       roomTypes: [],
       floorAssetTypes: [
         { id: 'gevel', label: 'Gevel', allowMultiple: true },
-        { id: 'raam', label: 'Raam', allowMultiple: true },
+        { id: 'dak', label: 'Dak', allowMultiple: true },
+        { id: 'vloer', label: 'Vloer', allowMultiple: true },
       ],
       propertyAssetTypes: [],
       roomsOnFloor: [],
@@ -149,6 +150,6 @@ describe('buildCreatePalette', () => {
       propertyAssets: [],
     })
 
-    expect(groups[0]!.items.map((i) => i.typeId)).toEqual(['gevel', 'raam'])
+    expect(groups[0]!.items.map((i) => i.typeId)).toEqual(['gevel', 'dak', 'vloer'])
   })
 })

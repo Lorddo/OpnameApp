@@ -97,8 +97,8 @@ async function download() {
 </script>
 
 <template>
-  <section class="space-y-6 lg:col-span-2">
-    <h1 class="text-3xl font-bold">
+  <section class="space-y-4 lg:col-span-2">
+    <h1 class="text-2xl font-bold">
       {{ route.params.inspectionId ? t('flow.resumeTitle') : t('flow.title') }}
     </h1>
     <p class="text-sm text-muted-foreground">{{ t('flow.step', { n: step }) }}</p>

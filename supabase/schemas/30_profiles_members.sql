@@ -47,7 +47,7 @@ begin
 end;
 $$;
 
-revoke all on function public.handle_new_user() from public;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 grant execute on function public.handle_new_user() to supabase_auth_admin;
 
 drop trigger if exists on_auth_user_created on auth.users;

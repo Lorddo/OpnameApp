@@ -217,16 +217,6 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     return answersBySubject.value[subjectAnswerKey('asset', assetId)] ?? {}
   }
 
-  const addableFloorAssetTypes = computed(() => {
-    const bovenkant = propertyAnswers().bovenkant
-    const onderkant = propertyAnswers().onderkant
-    return floorAssetTypes.value.filter((at) => {
-      if (at.id === DAK_ASSET_TYPE) return bovenkant === 'buiten'
-      if (at.id === VLOER_ASSET_TYPE) return onderkant === 'grond'
-      return true
-    })
-  })
-
   const propertyCompleteness = computed(() => {
     if (!merged.value) {
       return {
@@ -1452,7 +1442,6 @@ export const useInspectionFlowStore = defineStore('inspectionFlow', () => {
     merged,
     sortedRoomTypes,
     floorAssetTypes,
-    addableFloorAssetTypes,
     propertyAssetTypes,
     hasRoomTypes,
     hasPropertyTab,

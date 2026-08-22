@@ -28,7 +28,7 @@ const {
   roomsOnActiveFloor,
   assetsOnActiveFloor,
   propertyAssets,
-  addableFloorAssetTypes,
+  floorAssetTypes,
   propertyAssetTypes,
   hasRoomTypes,
   hasPropertyTab,
@@ -58,7 +58,7 @@ const paletteGroups = computed(() =>
   buildCreatePalette({
     isPropertyTab: isPropertyTab.value,
     roomTypes: sortedRoomTypes.value,
-    floorAssetTypes: addableFloorAssetTypes.value,
+    floorAssetTypes: floorAssetTypes.value,
     propertyAssetTypes: propertyAssetTypes.value,
     roomsOnFloor: roomsOnActiveFloor.value,
     assetsOnFloor: assetsOnActiveFloor.value,
@@ -198,7 +198,7 @@ defineExpose({ closeHelp })
 
 <template>
   <div
-    class="gap-4"
+    class="gap-3"
     :class="showPalette ? 'md:grid md:grid-cols-[6.5rem_minmax(0,1fr)]' : ''"
   >
     <CreatePalette
@@ -210,7 +210,7 @@ defineExpose({ closeHelp })
     />
 
     <div
-      class="order-1 space-y-4 md:order-2"
+      class="order-1 space-y-3 md:order-2"
       :class="showPalette ? 'pb-28 md:pb-0' : ''"
     >
       <div class="flex flex-wrap gap-2">
@@ -249,17 +249,17 @@ defineExpose({ closeHelp })
       <p
         v-for="hint in structureHints"
         :key="hint"
-        class="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+        class="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
       >
         {{ hintText(hint) }}
       </p>
 
-      <div v-if="isPropertyTab" id="property-questions" class="space-y-6">
+      <div v-if="isPropertyTab" id="property-questions" class="space-y-3">
         <section
           v-if="propertyId && flow.questionsForProperty().length"
-          class="rounded-xl border border-border bg-card p-5"
+          class="rounded-lg border border-border bg-card p-3"
         >
-          <div class="space-y-4">
+          <div class="space-y-2">
             <QuestionField
               v-for="q in flow.questionsForProperty()"
               :key="`property:${propertyId}:${q.attributeKey}`"
@@ -275,16 +275,16 @@ defineExpose({ closeHelp })
           </div>
         </section>
 
-        <section v-if="propertyAssets.length" class="space-y-4">
-          <h2 class="text-lg font-semibold">{{ t('flow.installations') }}</h2>
+        <section v-if="propertyAssets.length" class="space-y-3">
+          <h2 class="text-base font-semibold">{{ t('flow.installations') }}</h2>
           <section
             v-for="asset in propertyAssets"
             :id="`asset-${asset.id}`"
             :key="asset.id"
-            class="rounded-xl border border-border bg-card p-5"
+            class="rounded-lg border border-border bg-card p-3"
           >
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-              <h2 class="text-xl font-semibold">{{ assetTitle(asset) }}</h2>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+              <h2 class="text-lg font-semibold">{{ assetTitle(asset) }}</h2>
               <div class="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -306,7 +306,7 @@ defineExpose({ closeHelp })
                 </Button>
               </div>
             </div>
-            <div class="space-y-4">
+            <div class="space-y-2">
               <QuestionField
                 v-for="q in flow.questionsForAsset(asset.id)"
                 :key="`${asset.id}:${q.attributeKey}`"
@@ -322,18 +322,18 @@ defineExpose({ closeHelp })
         </section>
       </div>
 
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-3">
         <section
           v-for="room in roomsOnActiveFloor"
           :id="`room-${room.id}`"
           :key="room.id"
-          class="rounded-xl border border-border bg-card p-5"
+          class="rounded-lg border border-border bg-card p-3"
         >
-          <h2 class="mb-4 border-b border-border pb-3 text-xl font-semibold">
+          <h2 class="mb-2 border-b border-border pb-2 text-lg font-semibold">
             {{ roomTypeLabel(room.roomType) }}
           </h2>
 
-          <div class="space-y-4">
+          <div class="space-y-2">
             <QuestionField
               v-for="q in flow.questionsForRoom(room.id)"
               :key="`${room.id}:${q.attributeKey}`"
@@ -355,10 +355,10 @@ defineExpose({ closeHelp })
           v-for="asset in assetsOnActiveFloor"
           :id="`asset-${asset.id}`"
           :key="asset.id"
-          class="rounded-xl border border-border bg-card p-5"
+          class="rounded-lg border border-border bg-card p-3"
         >
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-            <h2 class="text-xl font-semibold">{{ assetTitle(asset) }}</h2>
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+            <h2 class="text-lg font-semibold">{{ assetTitle(asset) }}</h2>
             <div class="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -380,7 +380,7 @@ defineExpose({ closeHelp })
               </Button>
             </div>
           </div>
-          <div class="space-y-4">
+          <div class="space-y-2">
             <QuestionField
               v-for="q in flow.questionsForAsset(asset.id)"
               :key="`${asset.id}:${q.attributeKey}`"
@@ -435,7 +435,7 @@ defineExpose({ closeHelp })
           />
         </Button>
       </div>
-      <div class="flex flex-wrap gap-3">
+      <div class="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" :disabled="saving" @click="emit('save')">
           {{ t('flow.saveAnswers') }}
         </Button>

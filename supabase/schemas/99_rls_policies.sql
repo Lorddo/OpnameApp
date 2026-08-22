@@ -421,3 +421,11 @@ on public.api_keys
 for delete
 to authenticated
 using ((select app_private.is_org_admin(org_id)));
+
+-- Re-assert after the blanket authenticated table GRANT at the top of this file.
+revoke all on table public.webhook_deliveries from anon, authenticated;
+grant all on table public.webhook_deliveries to service_role;
+revoke all on function public.claim_webhook_deliveries(int) from public, anon, authenticated;
+grant execute on function public.claim_webhook_deliveries(int) to service_role;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+grant execute on function public.handle_new_user() to supabase_auth_admin;

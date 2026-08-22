@@ -65,7 +65,7 @@ begin
 end;
 $$;
 
-revoke all on function app_private.claim_webhook_deliveries(int) from public;
+revoke all on function app_private.claim_webhook_deliveries(int) from public, anon, authenticated;
 grant execute on function app_private.claim_webhook_deliveries(int) to service_role;
 
 -- PostgREST-exposed wrapper (service_role only).
@@ -78,7 +78,8 @@ as $$
   select * from app_private.claim_webhook_deliveries(p_limit);
 $$;
 
-revoke all on function public.claim_webhook_deliveries(int) from public;
+-- Hosted default privileges grant EXECUTE to anon/authenticated; PUBLIC-only revoke is not enough.
+revoke all on function public.claim_webhook_deliveries(int) from public, anon, authenticated;
 grant execute on function public.claim_webhook_deliveries(int) to service_role;
 
 revoke all on table public.webhook_deliveries from anon, authenticated;

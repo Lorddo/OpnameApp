@@ -303,6 +303,16 @@
       "answerType": "boolean",
       "helpText": "De ruimte wordt gedeeld door meerdere bewoners.\nEen parkeervoorziening wordt meegeteld indien deze naar haar aard onlosmakelijk met de woonruimte is verbonden.\n1) Dit is bijvoorbeeld het geval wanneer de parkeerplaats direct in verbinding staat met de woonruimte of behoort tot het adres of complex, zoals bij een gemeenschappelijke oprit of garage.\n2) Ook wordt de parkeervoorziening meegeteld indien deze volgens verkeersopvattingen of op grond van de huurovereenkomst deel uitmaakt van de gehuurde woning."
     },
+    "room.gereserveerdOppervlak": {
+      "answerScope": "room",
+      "questionKey": "gereserveerdOppervlak",
+      "label": "Hoeveel m² is er voor deze woning gereserveerd?",
+      "answerType": "number",
+      "helpText": "Bij een gemeenschappelijke carport telt alleen het gereserveerde aandeel mee. Vul het oppervlak in dat volgens de huurovereenkomst voor deze woning is gereserveerd.",
+      "unit": "m2",
+      "min": 0,
+      "step": 0.1
+    },
     "room.laadpaalVoorzieningen": {
       "answerScope": "room",
       "questionKey": "laadpaalVoorzieningen",
@@ -580,8 +590,14 @@
           "photoRequired": false
         },
         {
-          "attributeKey": "room.laadpaalVoorzieningen",
+          "attributeKey": "room.gereserveerdOppervlak",
           "sortOrder": 2,
+          "photoRequired": false,
+          "showWhen": "room.this.gedeeldeParkeervoorziening = true"
+        },
+        {
+          "attributeKey": "room.laadpaalVoorzieningen",
+          "sortOrder": 3,
           "photoRequired": true
         }
       ]

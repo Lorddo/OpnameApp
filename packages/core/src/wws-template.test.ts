@@ -304,4 +304,34 @@ describe('WWS 1.0.0', () => {
     expect(complete.property.isComplete).toBe(true)
     expect(complete.isComplete).toBe(true)
   })
+
+  it('asks reserved carport area only when the carport is shared', () => {
+    const keys = (answers: Record<string, unknown>) =>
+      listVisibleQuestions(wws, 'carport', answers).map((q) => q.attributeKey)
+
+    expect(keys({})).toEqual(['room.gedeeldeParkeervoorziening', 'room.laadpaalVoorzieningen'])
+    expect(keys({ gedeeldeParkeervoorziening: false })).toEqual([
+      'room.gedeeldeParkeervoorziening',
+      'room.laadpaalVoorzieningen',
+    ])
+    expect(keys({ gedeeldeParkeervoorziening: true })).toEqual([
+      'room.gedeeldeParkeervoorziening',
+      'room.gereserveerdOppervlak',
+      'room.laadpaalVoorzieningen',
+    ])
+
+    expect(
+      evaluateRoomCompleteness(wws, 'carport', {
+        gedeeldeParkeervoorziening: true,
+        laadpaalVoorzieningen: ['geen'],
+      }).missingAttributeKeys,
+    ).toEqual(['room.gereserveerdOppervlak'])
+    expect(
+      evaluateRoomCompleteness(wws, 'carport', {
+        gedeeldeParkeervoorziening: true,
+        gereserveerdOppervlak: 12.5,
+        laadpaalVoorzieningen: ['geen'],
+      }).isComplete,
+    ).toBe(true)
+  })
 })

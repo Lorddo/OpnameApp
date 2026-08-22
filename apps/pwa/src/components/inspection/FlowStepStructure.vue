@@ -114,6 +114,17 @@ async function onAddExtraRoom(floorId: string, roomType: string) {
   }
 }
 
+async function onRemoveOneRoom(floorId: string, roomType: string) {
+  const last = flow.roomsOfType(floorId, roomType).at(-1)
+  if (!last) return
+  busy.value = true
+  try {
+    await flow.removeRoom(last.id)
+  } finally {
+    busy.value = false
+  }
+}
+
 defineExpose({ closeDisableDialog })
 </script>
 
@@ -196,21 +207,35 @@ defineExpose({ closeDisableDialog })
             @change="onToggleRoom(floor.id, rt.id)"
           />
           <span class="flex-1">{{ rt.label }}</span>
-          <span
+          <div
             v-if="flow.roomsOfType(floor.id, rt.id).length > 0"
-            class="text-sm text-muted-foreground"
+            class="flex items-center gap-1"
           >
-            ×{{ flow.roomsOfType(floor.id, rt.id).length }}
-          </span>
-          <button
-            v-if="flow.roomsOfType(floor.id, rt.id).length > 0"
-            type="button"
-            class="rounded-md border border-border px-2 py-1 text-sm"
-            :disabled="busy || saving"
-            @click="onAddExtraRoom(floor.id, rt.id)"
-          >
-            +
-          </button>
+            <button
+              type="button"
+              class="rounded-md border border-border px-2 py-1 text-sm"
+              :disabled="busy || saving"
+              :aria-label="t('flow.removeOneRoom', { label: rt.label })"
+              @click="onRemoveOneRoom(floor.id, rt.id)"
+            >
+              −
+            </button>
+            <span
+              class="min-w-5 text-center text-sm tabular-nums text-muted-foreground"
+              aria-hidden="true"
+            >
+              {{ flow.roomsOfType(floor.id, rt.id).length }}
+            </span>
+            <button
+              type="button"
+              class="rounded-md border border-border px-2 py-1 text-sm"
+              :disabled="busy || saving || !rt.allowMultiplePerFloor"
+              :aria-label="t('flow.addOneRoom', { label: rt.label })"
+              @click="onAddExtraRoom(floor.id, rt.id)"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
     </div>
