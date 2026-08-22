@@ -13,7 +13,7 @@
     "build": "pnpm --filter @opnameapp/core build && pnpm -r --filter @opnameapp/api --filter @opnameapp/pwa build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "pnpm -r --filter @opnameapp/core --filter @opnameapp/api --filter @opnameapp/pwa typecheck",
+    "typecheck": "pnpm --filter @opnameapp/core build && pnpm -r --filter @opnameapp/core --filter @opnameapp/api --filter @opnameapp/pwa typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "pnpm --filter @opnameapp/pwa test:e2e",

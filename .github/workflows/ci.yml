@@ -27,6 +27,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build core
+        run: pnpm --filter @opnameapp/core build
+
       - name: Lint
         run: pnpm lint
 
